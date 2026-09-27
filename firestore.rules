@@ -6,6 +6,20 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // แอดมินสูงสุดของทั้งระบบ (ผู้ดูแลแอป) - ระบุด้วยอีเมล Gmail ที่ยืนยันแล้วจากการ login (บังคับทุกคน login ด้วย Gmail)
+    function isSuperAdmin() {
+      return isSignedIn() && request.auth.token.email == 'detbordin.sy@gmail.com';
+    }
+
+    // ผู้ใช้ถูกแบนอยู่หรือไม่ (แบนถาวร bannedUntil เป็น null หรือยังไม่ครบกำหนดเวลาที่แบน)
+    function isBanned() {
+      return exists(/databases/$(database)/documents/bannedUsers/$(request.auth.uid)) &&
+        (
+          get(/databases/$(database)/documents/bannedUsers/$(request.auth.uid)).data.bannedUntil == null ||
+          request.time < get(/databases/$(database)/documents/bannedUsers/$(request.auth.uid)).data.bannedUntil
+        );
+    }
+
     function groupDoc(groupId) {
       return get(/databases/$(database)/documents/groups/$(groupId)).data;
     }
@@ -24,7 +38,7 @@ service cloud.firestore {
     match /groups/{groupId} {
       allow get: if isSignedIn();
       allow list: if false; // ห้ามค้นหา/ไล่ดูกลุ่มทั้งหมด ต้องรู้รหัสกลุ่มเท่านั้น
-      allow create: if isSignedIn() && request.resource.data.adminUid == request.auth.uid;
+      allow create: if isSignedIn() && !isBanned() && request.resource.data.adminUid == request.auth.uid;
       // แอดมินคนใดก็ได้ (รวมแอดมินร่วมที่ถูกตั้งภายหลัง) แก้ไข/ลบกลุ่มทิ้งถาวรได้
       allow update, delete: if isAdmin(groupId);
 
@@ -46,10 +60,10 @@ service cloud.firestore {
 
       match /messages/{msgId} {
         allow read: if isSignedIn() && isMember(groupId);
-        allow create: if isSignedIn() && isMember(groupId) && request.resource.data.senderUid == request.auth.uid;
+        allow create: if isSignedIn() && !isBanned() && isMember(groupId) && request.resource.data.senderUid == request.auth.uid;
         allow update: if false;
-        // แอดมินลบข้อความได้ (ใช้ตอนลบกลุ่มทิ้งถาวร เพื่อล้างข้อความทั้งหมด)
-        allow delete: if isAdmin(groupId);
+        // แอดมินลบข้อความได้ (ใช้ตอนลบกลุ่มทิ้งถาวร เพื่อล้างข้อความทั้งหมด) หรือแอดมินระบบ (ลบเนื้อหาตอนแบนถาวร)
+        allow delete: if isAdmin(groupId) || isSuperAdmin();
       }
     }
 
@@ -57,27 +71,31 @@ service cloud.firestore {
     // อนุญาตเฉพาะสองฝั่งที่ uid ของตัวเองอยู่ใน thread id นี้เท่านั้น
     match /dm/{pairId}/messages/{msgId} {
       allow read: if isSignedIn() && pairId.matches('.*' + request.auth.uid + '.*');
-      allow create: if isSignedIn() && pairId.matches('.*' + request.auth.uid + '.*')
+      allow create: if isSignedIn() && !isBanned() && pairId.matches('.*' + request.auth.uid + '.*')
                     && request.resource.data.senderUid == request.auth.uid;
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if isSuperAdmin();
     }
 
-    // แชทสาธารณะ (หน้าหลัก) - ใครที่ล็อกอิน (anonymous) แล้วก็เข้ามาพิมพ์ได้เลย ไม่ต้องเข้ากลุ่มใดๆ
+    // แชทสาธารณะ (หน้าหลัก) - ใครที่ล็อกอินด้วย Gmail แล้วก็เข้ามาพิมพ์ได้เลย ไม่ต้องเข้ากลุ่มใดๆ (เว้นแต่ถูกแบนอยู่)
     match /publicChatMessages/{msgId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.senderUid == request.auth.uid;
-      allow update, delete: if false;
+      allow create: if isSignedIn() && !isBanned() && request.resource.data.senderUid == request.auth.uid;
+      allow update: if false;
+      // แอดมินระบบลบข้อความได้ (ใช้ตอน "ลบถาวร" เพื่อล้างเนื้อหาของผู้ใช้ที่ถูกแบน)
+      allow delete: if isSuperAdmin();
     }
 
-    // หมุดสภาพอากาศบนแผนที่หน้าหลัก - แสดงเฉพาะหมุดที่ยังไม่ครบ 3 ชม. (กรองฝั่ง client ด้วย query ts)
-    // อนุญาตให้ลบหมุดของตัวเอง หรือหมุดที่เก่าเกิน 6 ชม.แล้ว (ให้ client ไหนก็ได้ช่วยเก็บกวาดหมุดที่หมดอายุจริงๆ ทิ้ง)
+    // หมุดสภาพอากาศบนแผนที่หน้าหลัก - แต่ละหมุดมีอายุ 2 ชม. (กรอง/ซ่อนฝั่ง client ตามเวลาจริง)
+    // อนุญาตให้ลบหมุดของตัวเอง หมุดที่เก่าเกิน 2 ชม.แล้ว หรือแอดมินระบบลบได้เสมอ
     match /weatherPins/{pinId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow create: if isSignedIn() && !isBanned() && request.resource.data.uid == request.auth.uid;
       allow update: if false;
       allow delete: if isSignedIn() && (
         resource.data.uid == request.auth.uid ||
-        request.time > resource.data.ts + duration.value(6, 'h')
+        request.time > resource.data.ts + duration.value(2, 'h') ||
+        isSuperAdmin()
       );
     }
 
@@ -85,8 +103,16 @@ service cloud.firestore {
     // เขียนได้ทั้งฝั่งตัวเอง (เก็บของตัวเอง) และฝั่งอีกคน (แจ้งว่ามีข้อความใหม่ถึงเขา) แต่ต้องระบุว่าตัวเองเป็นคนส่งข้อความนั้นจริง
     match /dmThreads/{docId} {
       allow read: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
-      allow create, update: if isSignedIn() && request.resource.data.lastSenderUid == request.auth.uid;
+      allow create, update: if isSignedIn() && !isBanned() && request.resource.data.lastSenderUid == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    // รายชื่อผู้ถูกแบน (จัดการโดยแอดมินสูงสุดของระบบเท่านั้น) - ผู้ใช้แต่ละคนอ่านสถานะแบนของตัวเองได้
+    // เพื่อให้แอปแสดงเหตุผล/ระยะเวลาที่ถูกแบนให้เห็น แต่ห้ามอ่าน/แก้ไขของคนอื่น
+    match /bannedUsers/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isSuperAdmin());
+      allow list: if isSuperAdmin();
+      allow write: if isSuperAdmin();
     }
   }
 }

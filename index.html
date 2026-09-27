@@ -62,10 +62,36 @@
   </div>
 </section>
 
+<!-- บังคับเข้าสู่ระบบด้วย Gmail ก่อนใช้งานแอป (ทุกคน) -->
+<section id="screen-google-login" class="screen hidden">
+  <div class="center-card">
+    <div class="brand-mark">🔐</div>
+    <h1 data-i18n="app_title">วิทยุไซต์งาน</h1>
+    <p class="sub" data-i18n="google_login_sub">เพื่อความปลอดภัยของทุกคนในชุมชน กรุณาเข้าสู่ระบบด้วยบัญชี Gmail ก่อนใช้งาน</p>
+    <button id="btn-google-login" class="btn-primary google-btn">
+      <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.4-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.6 3 24 3c-7.5 0-14 4.2-17.7 10.4z"/><path fill="#4CAF50" d="M24 45c5.5 0 10.4-1.9 14.3-5.1l-6.6-5.6C29.6 36 26.9 37 24 37c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.9 40.7 16.4 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.6 5.6C41.6 36 45 30.5 45 24c0-1.4-.1-2.7-.4-3.5z"/></svg>
+      <span data-i18n="btn_google_login">เข้าสู่ระบบด้วย Gmail</span>
+    </button>
+    <p class="tiny-hint" data-i18n="google_login_hint">บัญชีเดียวกันจะพาชื่อ/กลุ่ม/ประวัติแชทของคุณตามไปได้ทุกเครื่อง</p>
+  </div>
+</section>
+
+<!-- หน้าแจ้งว่าถูกระงับการใช้งาน (บล็อกไม่ให้ไปต่อ) -->
+<section id="screen-banned" class="screen hidden">
+  <div class="center-card">
+    <div class="brand-mark">🚫</div>
+    <h1 data-i18n="banned_title">บัญชีของคุณถูกระงับการใช้งาน</h1>
+    <p id="banned-until-text" class="sub"></p>
+    <p id="banned-reason-text" class="sub"></p>
+    <p class="tiny-hint" data-i18n="banned_hint">หากคิดว่าเป็นความผิดพลาด กรุณาติดต่อผู้ดูแลระบบ</p>
+  </div>
+</section>
+
 <!-- หน้าหลัก: แชทสาธารณะ + แผนที่สภาพอากาศ (หน้าแรกของแอป) -->
 <section id="screen-public" class="screen hidden">
   <header class="topbar">
     <h2 data-i18n="public_title">หน้าหลัก</h2>
+    <button id="btn-admin-panel" class="icon-btn hidden" title="แผงควบคุมแอดมิน">🛡️</button>
     <button id="btn-dm-inbox" class="icon-btn" data-i18n-title="dm_inbox_title" title="ข้อความส่วนตัว">📩<span class="n-badge"></span></button>
     <button id="btn-update-app" class="icon-btn" data-i18n-title="update_app_title" title="ตรวจสอบและอัปเดตเวอร์ชันล่าสุด">🔄</button>
     <button id="btn-lang" class="icon-btn" title="Language">🌐</button>
@@ -74,6 +100,7 @@
 
   <div id="tab-public-chat" class="tab-content active">
     <div id="public-chat-messages" class="chat-messages"></div>
+    <div class="chat-scope-bar public" data-i18n="scope_public_hint">🌐 แชทสาธารณะ — ทุกคนในแอปเห็นข้อความนี้</div>
     <div class="chat-input-row">
       <input id="public-chat-input" type="text" data-i18n-placeholder="chat_placeholder" placeholder="พิมพ์ข้อความ...">
       <button id="btn-mic-public" class="icon-btn" data-i18n-title="mic_title" title="พูดแล้วพิมพ์อัตโนมัติ">🎙️</button>
@@ -113,6 +140,16 @@
   <div id="dm-inbox-list" class="groups-list"></div>
 </section>
 
+<!-- แผงควบคุมแอดมิน (super admin เท่านั้น): รายชื่อผู้ถูกแบน + ปลดแบน -->
+<section id="screen-admin" class="screen hidden">
+  <header class="topbar">
+    <button id="btn-back-admin" class="icon-btn">←</button>
+    <h2>🛡️ แผงควบคุมแอดมิน</h2>
+  </header>
+  <div class="map-hint">รายชื่อผู้ใช้ที่ถูกระงับการใช้งานอยู่ในขณะนี้</div>
+  <div id="banned-users-list" class="groups-list"></div>
+</section>
+
 <!-- หน้าห้องกลุ่ม -->
 <section id="screen-room" class="screen hidden">
   <header class="topbar">
@@ -122,6 +159,7 @@
       <div id="room-sub" class="room-sub">0 คนออนไลน์</div>
     </div>
     <button id="btn-online-toggle" class="online-toggle">🔴 ออฟไลน์</button>
+    <button id="btn-dm-inbox-room" class="icon-btn" data-i18n-title="dm_inbox_title" title="ข้อความส่วนตัว">📩<span class="n-badge"></span></button>
     <button id="btn-room-menu" class="icon-btn" title="เมนู">⋮</button>
   </header>
 
@@ -130,6 +168,7 @@
 
   <div id="tab-chat" class="tab-content active">
     <div id="chat-messages" class="chat-messages"></div>
+    <div id="chat-scope-group-hint" class="chat-scope-bar group">🔒 แชทกลุ่ม</div>
     <div class="chat-input-row">
       <button id="btn-attach" class="icon-btn">📷</button>
       <input id="file-camera" type="file" accept="image/*" capture="environment" class="hidden">
@@ -246,6 +285,25 @@
     <div class="modal-actions">
       <button class="btn-ghost modal-close" data-i18n="btn_cancel">ยกเลิก</button>
       <button id="btn-submit-pin" class="btn-primary" data-i18n="btn_pin_submit">ปักหมุด</button>
+    </div>
+  </div>
+</div>
+
+<!-- ป๊อปอัพ: แบนผู้ใช้ (super admin เท่านั้น) -->
+<div id="modal-ban-user" class="modal hidden">
+  <div class="modal-card">
+    <h3>🛡️ แบนผู้ใช้: <span id="ban-target-name"></span></h3>
+    <p class="sub" style="margin-top:-6px;">เลือกระยะเวลาที่จะระงับการใช้งานของคนนี้</p>
+    <div class="ban-duration-grid">
+      <button type="button" class="btn-secondary ban-dur-btn" data-days="1">1 วัน</button>
+      <button type="button" class="btn-secondary ban-dur-btn" data-days="3">3 วัน</button>
+      <button type="button" class="btn-secondary ban-dur-btn" data-days="7">7 วัน</button>
+      <button type="button" class="btn-secondary ban-dur-btn" data-days="30">30 วัน</button>
+      <button type="button" class="btn-secondary ban-dur-btn" data-days="forever">ถาวร</button>
+    </div>
+    <button id="btn-ban-wipe" type="button" class="btn-danger" style="margin-top:10px;">🗑️ ลบถาวร (แบนถาวร + ลบข้อความ/หมุดของคนนี้ทั้งหมด)</button>
+    <div class="modal-actions">
+      <button class="btn-ghost modal-close" data-i18n="btn_cancel">ยกเลิก</button>
     </div>
   </div>
 </div>

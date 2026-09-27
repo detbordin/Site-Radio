@@ -143,6 +143,14 @@ input::placeholder { color: var(--muted); }
   background: var(--bg-elev); border-top: 1px solid var(--border);
 }
 .chat-input-row input { margin: 0; flex: 1; }
+
+/* แถบบอกขอบเขตแชท (สาธารณะ/กลุ่ม) ติดอยู่เหนือช่องพิมพ์เสมอ กันผู้ใช้กดผิดที่ระหว่างสองหน้าที่หน้าตาคล้ายกัน */
+.chat-scope-bar {
+  font-size: 12px; font-weight: 700; text-align: center; padding: 6px 10px;
+  border-top: 1px solid var(--border); letter-spacing: 0.2px;
+}
+.chat-scope-bar.public { background: rgba(47,176,255,0.14); color: #6cc4ff; }
+.chat-scope-bar.group { background: rgba(255,122,69,0.14); color: var(--accent-2); }
 .icon-btn.send { background: linear-gradient(135deg, var(--accent), #e8542a); color: #fff; }
 .icon-btn.listening { background: var(--danger); color: #fff; animation: pulse 1s infinite; }
 
@@ -384,10 +392,22 @@ input::placeholder { color: var(--muted); }
 #weather-map {
   flex: 1; min-height: 0; width: 100%; background: var(--card);
 }
-#tab-public-map .fab { position: absolute; }
+/* ปุ่มปักหมุดต้องลอยอยู่เหนือแผนที่/ปุ่มซูมของ Leaflet เสมอ (Leaflet control z-index สูงถึง 1000
+   ถ้าไม่กำหนด z-index ให้ปุ่มนี้ชัดเจน ปุ่มจะโดนชั้นควบคุมของแผนที่บังจนกดไม่ติดเป็นบางจังหวะ) */
+#tab-public-map .fab { position: absolute; z-index: 1200; }
 #btn-add-pin.active {
   background: linear-gradient(135deg, #2fb0ff, #1a7fd6);
   box-shadow: 0 0 0 4px rgba(47,176,255,0.28), 0 6px 18px rgba(0,0,0,0.35);
+}
+/* ป้ายกำกับเวลาแบบเห็นชัดบนตัวหมุดเอง (ไม่ต้องกดเปิด popup ก่อนถึงจะรู้ว่าข้อมูล ณ เวลาไหน) */
+.weather-pin-icon {
+  position: relative;
+}
+.weather-pin-icon .pin-age-tag {
+  position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+  background: rgba(11,18,32,0.92); color: #eef1f8; border: 1px solid rgba(255,255,255,0.25);
+  font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 8px; white-space: nowrap;
+  line-height: 1.4;
 }
 .tappable-sender { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
 
@@ -407,7 +427,8 @@ input::placeholder { color: var(--muted); }
 .leaflet-container a.leaflet-popup-close-button { color: var(--muted); }
 .pin-popup { min-width: 160px; font-size: 13.5px; }
 .pin-popup-head { font-size: 15px; margin-bottom: 4px; }
-.pin-popup-by { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+.pin-popup-by { color: var(--muted); font-size: 12px; margin-bottom: 2px; }
+.pin-popup-time { color: var(--accent-2); font-size: 11.5px; font-weight: 600; margin-bottom: 6px; }
 .pin-popup-note { margin-bottom: 6px; line-height: 1.5; word-break: break-word; }
 .pin-popup-photo { width: 100%; max-height: 140px; object-fit: cover; border-radius: 10px; margin-bottom: 6px; display: block; }
 .pin-popup-actions { display: flex; justify-content: flex-end; }
@@ -433,3 +454,19 @@ input::placeholder { color: var(--muted); }
 .icon-btn .n-badge:empty { display: none; }
 .icon-btn .n-badge { position: absolute; top: -2px; right: -4px; }
 .icon-btn .n-badge .badge { min-width: 16px; height: 16px; line-height: 16px; font-size: 10px; padding: 0 4px; }
+
+/* ---------- หน้าเข้าสู่ระบบด้วย Gmail (บังคับ) + หน้าถูกระงับการใช้งาน ---------- */
+.tiny-hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin-top: 14px; }
+.google-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: #fff; color: #1f1f1f;
+}
+.google-btn:active { transform: scale(0.98); }
+#screen-banned .brand-mark { background: linear-gradient(145deg, #4a1616, #2a0d0d); }
+#banned-until-text, #banned-reason-text { font-weight: 600; color: var(--text); }
+
+/* ---------- แผงควบคุมแอดมิน + ป๊อปอัพแบนผู้ใช้ ---------- */
+.ban-duration-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 4px;
+}
+.ban-dur-btn { padding: 12px 6px; font-size: 13.5px; }

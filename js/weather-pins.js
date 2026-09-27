@@ -1,26 +1,24 @@
 // หมุดสภาพอากาศบนแผนที่หน้าหลัก - ปักหมุดบอกสภาพอากาศ ณ ตำแหน่งนั้น พร้อมรูป (ถ้ามี)
-// รีเซ็ตพร้อมกันทุก 3 ชั่วโมง: ใช้วิธีตัดเป็น "ช่วง" (bucket) ตามเวลาโลกจริง แทนการนับ 3 ชม.
-// จากตอนที่ปักแต่ละหมุด เพื่อให้หมุดทั้งหมดหายไปพร้อมกันทีเดียวตามเวลาเดียวกันสำหรับทุกคน
+// แต่ละหมุดจะถูกลบออกจากแผนที่ "อัตโนมัติเป็นรายหมุด" หลังปักไปแล้ว 2 ชั่วโมง (นับจากเวลาที่ปักหมุดนั้นๆ เอง
+// ไม่ใช่รีเซ็ตพร้อมกันทั้งหมดทุก 3 ชม.แบบเดิม) - Firestore query แบบ real-time ไม่รู้จัก "เวลาปัจจุบันขยับ"
+// เอง จึงต้องกรองอายุหมุดซ้ำฝั่ง client ทุกๆ 30 วิ (ไทเมอร์ในหน้า app.js) เพื่อให้หมุดหายตรงเวลาจริง
 const WeatherPins = (() => {
-  const BUCKET_MS = 3 * 60 * 60 * 1000; // 3 ชั่วโมง
+  const TTL_MS = 2 * 60 * 60 * 1000; // อายุหมุด 2 ชั่วโมง
+  const QUERY_MARGIN_MS = 30 * 60 * 1000; // ดึงข้อมูลเผื่อไว้อีก 30 นาที กัน race condition ตอนใกล้หมดอายุ
   let unsub = null;
-
-  function currentBucketStart() {
-    return Math.floor(Date.now() / BUCKET_MS) * BUCKET_MS;
-  }
 
   function listen(cb) {
     if (unsub) unsub();
-    const bucketStart = new Date(currentBucketStart());
+    const cutoff = new Date(Date.now() - TTL_MS - QUERY_MARGIN_MS);
     unsub = db.collection('weatherPins')
-      .where('ts', '>=', bucketStart)
+      .where('ts', '>=', cutoff)
       .orderBy('ts', 'desc')
       .onSnapshot(snap => {
         const pins = [];
         snap.forEach(d => pins.push({ id: d.id, ...d.data() }));
         cb(pins);
       }, () => {});
-    // เก็บกวาดหมุดที่หมดอายุไปนานแล้ว (เก่ากว่าปัจจุบันไป 2 ช่วงขึ้นไป) แบบขี้เกียจ (lazy) -
+    // เก็บกวาดหมุดที่หมดอายุ (เกิน 2 ชม.) ทิ้งจริงจากฐานข้อมูล แบบขี้เกียจ (lazy) -
     // ทำครั้งเดียวตอนเปิดแผนที่ ไม่ต้องมีเซิร์ฟเวอร์ตั้งเวลาลบ (แผนฟรีไม่มี Cloud Functions)
     purgeStale().catch(() => {});
   }
@@ -29,10 +27,18 @@ const WeatherPins = (() => {
     if (unsub) { unsub(); unsub = null; }
   }
 
+  // อายุหมุด (มิลลิวินาที) ณ ตอนนี้ - ใช้ทั้งตอนกรองแสดงผลและตอนแปะป้ายเวลาบนแผนที่
+  function ageMs(pin) {
+    if (!pin.ts || !pin.ts.toMillis) return 0;
+    return Date.now() - pin.ts.toMillis();
+  }
+
+  function isExpired(pin) {
+    return ageMs(pin) >= TTL_MS;
+  }
+
   async function purgeStale() {
-    // ใช้ 2 ช่วงย้อนหลัง (6 ชม.) แทน 1 ช่วง เพื่อให้แน่ใจว่าหมุดที่จะลบเก่าเกิน 6 ชม.เสมอ
-    // ตรงตามกฎความปลอดภัยที่อนุญาตให้ใครก็ได้ลบหมุดคนอื่นที่เก่าเกิน 6 ชม. (ไม่งั้น batch อาจถูกปฏิเสธ)
-    const staleCutoff = new Date(currentBucketStart() - 2 * BUCKET_MS);
+    const staleCutoff = new Date(Date.now() - TTL_MS);
     const snap = await db.collection('weatherPins').where('ts', '<', staleCutoff).limit(200).get();
     if (snap.empty) return;
     const batch = db.batch();
@@ -57,5 +63,5 @@ const WeatherPins = (() => {
     await db.collection('weatherPins').doc(pinId).delete();
   }
 
-  return { listen, stop, addPin, removePin, currentBucketStart, BUCKET_MS };
+  return { listen, stop, addPin, removePin, ageMs, isExpired, TTL_MS };
 })();

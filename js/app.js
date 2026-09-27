@@ -449,7 +449,7 @@
     }
   }
 
-  // ---------- ชื่อผู้ใช้ ----------
+  // ---------- ชื่อผู้ใช้ + บังคับ Login ด้วย Gmail ----------
   async function init() {
     I18N.applyStaticTranslations();
     el('btn-ptt-target').textContent = I18N.t('ptt_target_all');
@@ -457,10 +457,8 @@
     attachVoiceInput('btn-mic-dm', 'dm-input');
     attachVoiceInput('btn-mic-public', 'public-chat-input');
     await Identity.signIn();
-    VideoCall.setMyName(Identity.getName());
-    DmInbox.listen(renderDmInboxBadge); // ตัวเลขแจ้งเตือนข้อความส่วนตัวใหม่ ทำงานอยู่เบื้องหลังตลอดทั้งเซสชัน
 
-    // เช็คว่ามาจากลิงก์เชิญ/สแกน QR ไหม (?g=รหัสกลุ่ม&p=รหัสผ่าน)
+    // เช็คว่ามาจากลิงก์เชิญ/สแกน QR ไหม (?g=รหัสกลุ่ม&p=รหัสผ่าน) - เก็บไว้ก่อน ใช้ตอนผ่านล็อกอิน/เช็คแบนแล้ว
     const params = new URLSearchParams(location.search);
     const joinCode = params.get('g');
     const joinPass = params.get('p');
@@ -469,6 +467,53 @@
       // ลบพารามิเตอร์ออกจาก URL ทันที ไม่ให้รหัสผ่านค้างอยู่ในแถบที่อยู่/ประวัติเบราว์เซอร์
       history.replaceState(null, '', location.pathname);
     }
+
+    if (Identity.needsGoogleLogin()) {
+      showScreen('screen-google-login');
+      return; // รอกดปุ่ม "เข้าสู่ระบบด้วย Gmail" ก่อน (บังคับทุกคน) - ไปต่อที่ btn-google-login handler ด้านล่าง
+    }
+    await afterLogin();
+  }
+
+  el('btn-google-login').addEventListener('click', async () => {
+    const btn = el('btn-google-login');
+    btn.disabled = true;
+    try {
+      await Identity.loginWithGoogle();
+      await afterLogin();
+    } catch (err) {
+      toast('เข้าสู่ระบบด้วย Gmail ไม่สำเร็จ ลองใหม่อีกครั้ง');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // เช็คสถานะแบนก่อนเสมอหลังผ่านการล็อกอิน (ทั้งตอนเพิ่ง login และตอนกลับมาเปิดแอปซ้ำที่ login ค้างไว้แล้ว)
+  async function checkAndShowBanStatus() {
+    try {
+      const doc = await db.collection('bannedUsers').doc(Identity.getUid()).get();
+      if (!doc.exists) return false;
+      const b = doc.data();
+      const untilMs = b.bannedUntil && b.bannedUntil.toMillis ? b.bannedUntil.toMillis() : null;
+      const stillBanned = !untilMs || untilMs > Date.now();
+      if (!stillBanned) return false;
+      el('banned-until-text').textContent = untilMs
+        ? I18N.t('banned_until_prefix', { until: new Date(untilMs).toLocaleString('th-TH') })
+        : I18N.t('banned_until_forever');
+      el('banned-reason-text').textContent = b.reason ? I18N.t('ban_reason_prefix', { reason: b.reason }) : '';
+      showScreen('screen-banned');
+      return true;
+    } catch (err) {
+      return false; // เช็คไม่ได้ (เช่นออฟไลน์ชั่วคราว) - ปล่อยผ่านไปก่อน ไม่บล็อกเพราะเน็ตหลุด
+    }
+  }
+
+  async function afterLogin() {
+    const banned = await checkAndShowBanStatus();
+    if (banned) return;
+    VideoCall.setMyName(Identity.getName());
+    DmInbox.listen(renderDmInboxBadge); // ตัวเลขแจ้งเตือนข้อความส่วนตัวใหม่ ทำงานอยู่เบื้องหลังตลอดทั้งเซสชัน
+    updateSuperAdminUI();
 
     const name = Identity.getName();
     if (!name) {
@@ -667,6 +712,7 @@
     pttTarget = 'all';
     isOnline = false;
     el('room-name').textContent = g.name;
+    if (el('chat-scope-group-hint')) el('chat-scope-group-hint').textContent = I18N.t('scope_group_hint', { group: g.name });
     showScreen('screen-room');
     switchTab('chat');
     updateOnlineToggleUI();
@@ -1062,6 +1108,9 @@
       }
       items.push({ icon: '🚫', label: 'นำออกจากกลุ่ม', danger: true, onClick: () => removeMember(m) });
     }
+    if (Identity.isSuperAdmin() && m.uid !== Identity.getUid()) {
+      items.push({ icon: '🛡️', label: 'แบนผู้ใช้นี้ (แอดมินระบบ)', danger: true, onClick: () => openBanModal(m.uid, m.name) });
+    }
     openSheet(m.name, items);
   }
 
@@ -1246,7 +1295,15 @@
       div.innerHTML = `${mine ? '' : `<div class="sender tappable-sender">${escapeHtml(m.senderName || '')}</div>`}<div class="text">${escapeHtml(m.text || '')}</div><div class="time">${time}</div>`;
       if (!mine) {
         div.querySelector('.sender').addEventListener('click', () => {
-          openDm({ uid: m.senderUid, name: m.senderName, avatar: m.senderAvatar }, 'screen-public');
+          const peer = { uid: m.senderUid, name: m.senderName, avatar: m.senderAvatar };
+          if (Identity.isSuperAdmin()) {
+            openSheet(m.senderName, [
+              { icon: '💬', label: 'ข้อความส่วนตัว', onClick: () => openDm(peer, 'screen-public') },
+              { icon: '🛡️', label: 'แบนผู้ใช้นี้ (แอดมินระบบ)', danger: true, onClick: () => openBanModal(peer.uid, peer.name) }
+            ]);
+          } else {
+            openDm(peer, 'screen-public');
+          }
         });
       }
       box.appendChild(div);
@@ -1265,13 +1322,18 @@
   }
 
   // ---------- กล่องข้อความส่วนตัว (inbox) ----------
-  el('btn-dm-inbox').addEventListener('click', () => showScreen('screen-dm-inbox'));
-  el('btn-back-dm-inbox').addEventListener('click', () => showScreen('screen-public'));
+  // เข้าถึงกล่องข้อความส่วนตัวได้จากทั้งหน้าหลักและห้องกลุ่ม (บทสนทนาเดียวกันไม่ว่าจะเริ่มทักจากที่ไหน) -
+  // เก็บว่ากดเข้ามาจากหน้าไหน เพื่อให้ปุ่มย้อนกลับพากลับไปหน้านั้นถูกต้อง
+  let dmInboxReturnScreen = 'screen-public';
+  el('btn-dm-inbox').addEventListener('click', () => { dmInboxReturnScreen = 'screen-public'; showScreen('screen-dm-inbox'); });
+  el('btn-dm-inbox-room').addEventListener('click', () => { dmInboxReturnScreen = 'screen-room'; showScreen('screen-dm-inbox'); });
+  el('btn-back-dm-inbox').addEventListener('click', () => showScreen(dmInboxReturnScreen));
 
   function renderDmInboxBadge(threads) {
     const count = threads.filter(t => t.unread).length;
-    const badge = document.querySelector('#btn-dm-inbox .n-badge');
-    if (badge) badge.innerHTML = renderBadge(count);
+    document.querySelectorAll('#btn-dm-inbox .n-badge, #btn-dm-inbox-room .n-badge').forEach(badge => {
+      badge.innerHTML = renderBadge(count);
+    });
     renderDmInboxList(threads);
   }
 
@@ -1309,6 +1371,23 @@
   let pendingPinLatLng = null;
   let pendingPinCondition = null;
   let pendingPinPhotoDataUrl = null;
+  let lastWeatherPins = [];
+
+  // ป้ายกำกับเวลาของหมุด: เวลาที่ปัก (ตามเวลาไทย) + นับถอยหลังว่าอีกกี่นาทีจะหายไป (อายุหมุด 2 ชม.)
+  function pinTimeLabel(p) {
+    if (!p.ts || !p.ts.toDate) return '';
+    return p.ts.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+  }
+  function pinCountdownLabel(p) {
+    const remainMs = WeatherPins.TTL_MS - WeatherPins.ageMs(p);
+    if (remainMs <= 0) return 'กำลังจะหายไป';
+    const mins = Math.max(1, Math.round(remainMs / 60000));
+    if (mins >= 60) {
+      const h = Math.floor(mins / 60), m = mins % 60;
+      return `เหลือ ${h} ชม.${m ? ' ' + m + ' น.' : ''}`;
+    }
+    return `เหลือ ${mins} นาที`;
+  }
 
   function initWeatherMapIfNeeded() {
     if (weatherMap || typeof L === 'undefined') return;
@@ -1330,7 +1409,10 @@
     });
     if (!weatherPinsStarted) {
       weatherPinsStarted = true;
-      WeatherPins.listen(renderWeatherPins);
+      WeatherPins.listen((pins) => { lastWeatherPins = pins; renderWeatherPins(pins); });
+      // เช็คซ้ำทุก 30 วิ เพื่อซ่อนหมุดที่ครบ 2 ชม.พอดีออกจากแผนที่ และอัปเดตป้ายนับถอยหลัง
+      // (query ของ Firestore ไม่รู้เองว่า "เวลาปัจจุบัน" ขยับไปแล้ว จึงต้องกรองซ้ำฝั่ง client)
+      setInterval(() => renderWeatherPins(lastWeatherPins), 30000);
     }
   }
 
@@ -1340,15 +1422,19 @@
     toast(addPinMode ? 'แตะบนแผนที่ตรงตำแหน่งที่ต้องการปักหมุด' : 'ยกเลิกการปักหมุด');
   });
 
-  function renderWeatherPins(pins) {
+  function renderWeatherPins(pinsIn) {
     if (!weatherMap) return;
+    // กรองหมุดที่ครบอายุ 2 ชม.แล้วออกจากแผนที่ (query อาจยังคืนมาเผื่อไว้เกินอายุจริงเล็กน้อย)
+    const pins = pinsIn.filter(p => !WeatherPins.isExpired(p));
     const seen = {};
     pins.forEach(p => {
       seen[p.id] = true;
+      const iconHtml = `<span class="pin-emoji">${WEATHER_ICONS[p.condition] || '📍'}</span><span class="pin-age-tag">${escapeHtml(pinCountdownLabel(p))}</span>`;
       if (weatherMarkers[p.id]) {
         weatherMarkers[p.id].setLatLng([p.lat, p.lng]);
+        weatherMarkers[p.id].setIcon(L.divIcon({ className: 'weather-pin-icon', html: iconHtml, iconSize: [34, 34] }));
       } else {
-        const icon = L.divIcon({ className: 'weather-pin-icon', html: `<span>${WEATHER_ICONS[p.condition] || '📍'}</span>`, iconSize: [34, 34] });
+        const icon = L.divIcon({ className: 'weather-pin-icon', html: iconHtml, iconSize: [34, 34] });
         const marker = L.marker([p.lat, p.lng], { icon }).addTo(weatherMap);
         marker.bindPopup(() => buildPinPopupHtml(p));
         marker.on('popupopen', () => wirePinPopup(p));
@@ -1361,20 +1447,23 @@
   }
 
   function buildPinPopupHtml(p) {
-    const time = p.ts && p.ts.toDate ? p.ts.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '';
     const photo = p.photoDataUrl ? `<img class="pin-popup-photo" src="${p.photoDataUrl}">` : '';
     const mine = p.uid === Identity.getUid();
     const avatarJson = escapeHtml(JSON.stringify(p.avatar || null));
     return `
       <div class="pin-popup">
         <div class="pin-popup-head">${WEATHER_ICONS[p.condition] || '📍'} <b>${escapeHtml(WEATHER_LABELS[p.condition] || '')}</b></div>
-        <div class="pin-popup-by">${escapeHtml(p.name || '')} · ${time}</div>
+        <div class="pin-popup-by">${escapeHtml(p.name || '')}</div>
+        <div class="pin-popup-time">🕐 ข้อมูล ณ เวลา ${escapeHtml(pinTimeLabel(p))} น. · ${escapeHtml(pinCountdownLabel(p))}</div>
         ${p.note ? `<div class="pin-popup-note">${escapeHtml(p.note)}</div>` : ''}
         ${photo}
         <div class="pin-popup-actions">
           ${mine
             ? `<button type="button" class="pin-popup-del" data-pin="${p.id}">🗑️</button>`
             : `<button type="button" class="pin-popup-dm" data-uid="${p.uid}" data-name="${escapeHtml(p.name || '')}" data-avatar='${avatarJson}'>💬</button>`}
+          ${(!mine && Identity.isSuperAdmin())
+            ? `<button type="button" class="pin-popup-ban" data-uid="${p.uid}" data-name="${escapeHtml(p.name || '')}">🛡️</button>`
+            : ''}
         </div>
       </div>`;
   }
@@ -1396,6 +1485,11 @@
       if (!confirm('ลบหมุดนี้ใช่หรือไม่?')) return;
       try { await WeatherPins.removePin(delBtn.dataset.pin); weatherMap.closePopup(); }
       catch (err) { toast('ลบไม่สำเร็จ'); }
+    });
+    const banBtn = node.querySelector('.pin-popup-ban');
+    if (banBtn) banBtn.addEventListener('click', () => {
+      weatherMap.closePopup();
+      openBanModal(banBtn.dataset.uid, banBtn.dataset.name);
     });
   }
 
@@ -1440,6 +1534,100 @@
       pendingPinLatLng = null;
     } catch (e) { toast('ปักหมุดไม่สำเร็จ'); }
   });
+
+  // ================== แผงควบคุมแอดมินระบบ (super admin เท่านั้น): แบน/ปลดแบนผู้ใช้ ==================
+  function updateSuperAdminUI() {
+    el('btn-admin-panel').classList.toggle('hidden', !Identity.isSuperAdmin());
+  }
+
+  el('btn-admin-panel').addEventListener('click', () => {
+    showScreen('screen-admin');
+    renderBannedUsersList();
+  });
+  el('btn-back-admin').addEventListener('click', () => showScreen('screen-public'));
+
+  let pendingBanTarget = null;
+  function openBanModal(uid, name) {
+    if (!Identity.isSuperAdmin()) return;
+    pendingBanTarget = { uid, name };
+    el('ban-target-name').textContent = name || '';
+    showModal('modal-ban-user');
+  }
+
+  document.querySelectorAll('#modal-ban-user .ban-dur-btn').forEach(b => {
+    b.addEventListener('click', async () => {
+      if (!pendingBanTarget) return;
+      const days = b.dataset.days;
+      const bannedUntil = days === 'forever' ? null : firebase.firestore.Timestamp.fromMillis(Date.now() + Number(days) * 86400000);
+      try {
+        await db.collection('bannedUsers').doc(pendingBanTarget.uid).set({
+          name: pendingBanTarget.name || '',
+          bannedUntil,
+          bannedBy: Identity.getUid(),
+          bannedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        hideModal('modal-ban-user');
+        toast('แบนผู้ใช้แล้ว');
+      } catch (e) { toast('แบนไม่สำเร็จ'); }
+    });
+  });
+
+  el('btn-ban-wipe').addEventListener('click', async () => {
+    if (!pendingBanTarget) return;
+    if (!confirm(`แบนถาวรและลบข้อความ/หมุดทั้งหมดของ "${pendingBanTarget.name}" ใช่หรือไม่? (กู้คืนไม่ได้)`)) return;
+    const targetUid = pendingBanTarget.uid;
+    try {
+      await db.collection('bannedUsers').doc(targetUid).set({
+        name: pendingBanTarget.name || '',
+        bannedUntil: null,
+        bannedBy: Identity.getUid(),
+        bannedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        wiped: true
+      });
+      // ลบข้อความแชทสาธารณะ + หมุดสภาพอากาศทั้งหมดของคนนี้ทิ้ง (จำกัดชุดละ 400 รายการต่อคอลเลกชัน กันเกินขีดจำกัด batch)
+      const [msgsSnap, pinsSnap] = await Promise.all([
+        db.collection('publicChatMessages').where('senderUid', '==', targetUid).limit(400).get(),
+        db.collection('weatherPins').where('uid', '==', targetUid).limit(400).get()
+      ]);
+      const batch = db.batch();
+      msgsSnap.forEach(d => batch.delete(d.ref));
+      pinsSnap.forEach(d => batch.delete(d.ref));
+      if (!msgsSnap.empty || !pinsSnap.empty) await batch.commit();
+      hideModal('modal-ban-user');
+      toast('ลบถาวรเรียบร้อยแล้ว');
+    } catch (e) { toast('ทำรายการไม่สำเร็จ'); }
+  });
+
+  async function renderBannedUsersList() {
+    const box = el('banned-users-list');
+    box.innerHTML = '<div class="empty-hint">กำลังโหลด...</div>';
+    try {
+      const snap = await db.collection('bannedUsers').get();
+      const rows = [];
+      snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+      if (rows.length === 0) { box.innerHTML = '<div class="empty-hint">ยังไม่มีผู้ใช้ที่ถูกแบน</div>'; return; }
+      box.innerHTML = '';
+      rows.forEach(r => {
+        const untilMs = r.bannedUntil && r.bannedUntil.toMillis ? r.bannedUntil.toMillis() : null;
+        const statusText = untilMs ? ('จนถึง ' + new Date(untilMs).toLocaleString('th-TH')) : 'ถาวร';
+        const div = document.createElement('div');
+        div.className = 'group-item';
+        div.innerHTML = `
+          <div class="info">
+            <div class="g-name">${escapeHtml(r.name || r.id)}</div>
+            <div class="g-role">${escapeHtml(statusText)}${r.wiped ? ' · ลบเนื้อหาแล้ว' : ''}</div>
+          </div>
+          <button type="button" class="btn-secondary" data-unban="${r.id}" style="width:auto;padding:8px 14px;">ปลดแบน</button>`;
+        div.querySelector('[data-unban]').addEventListener('click', async () => {
+          try { await db.collection('bannedUsers').doc(r.id).delete(); renderBannedUsersList(); toast('ปลดแบนแล้ว'); }
+          catch (e) { toast('ทำรายการไม่สำเร็จ'); }
+        });
+        box.appendChild(div);
+      });
+    } catch (e) {
+      box.innerHTML = '<div class="empty-hint">โหลดรายชื่อไม่สำเร็จ</div>';
+    }
+  }
 
   function escapeHtml(s) {
     return (s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
