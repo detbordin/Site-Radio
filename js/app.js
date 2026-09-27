@@ -248,7 +248,12 @@
     a.currentTime = 0;
     a.play().catch(() => {});
   }
+  // ปุ่มแจ้งเตือนทั้งกลุ่ม: เฉพาะแอดมิน (รวมแอดมินร่วม) เท่านั้นที่เห็นปุ่มนี้และกดได้
+  function updatePingGroupBtnVisibility() {
+    el('btn-ping-group').classList.toggle('hidden', !isAdmin);
+  }
   el('btn-ping-group').addEventListener('click', () => {
+    if (!isAdmin) return; // กันไว้อีกชั้น เผื่อ DOM ถูกแก้ไขให้ปุ่มโผล่มา
     sendGroupPing('all');
     toast('🔔 ส่งเสียงแจ้งเตือนถึงทั้งกลุ่มแล้ว');
   });
@@ -650,6 +655,7 @@
     updateOnlineToggleUI();
 
     isAdmin = false; // จะอัปเดตให้ถูกต้องทันทีที่รายชื่อสมาชิกโหลดมา (ดูค่า role ของตัวเอง)
+    updatePingGroupBtnVisibility();
 
     // เผื่อกลุ่มนี้ถูกแอดมินลบทิ้งถาวรไปแล้วโดยที่เครื่องนี้ยังไม่รู้ (ยังค้างอยู่ในรายการกลุ่มของเครื่องนี้)
     const stillExists = await Groups.getGroupInfo(g.id).catch(() => null);
@@ -689,6 +695,7 @@
       const me = members.find(x => x.uid === Identity.getUid());
       isAdmin = !!me && me.role === 'admin';
       renderMembers();
+      updatePingGroupBtnVisibility();
       members.forEach(m => { if (m.uid !== Identity.getUid()) watchDmUnread(m.uid); });
     });
 
@@ -816,6 +823,8 @@
     membersCache.forEach(m => { if (m.uid !== Identity.getUid()) unwatchDmUnread(m.uid); });
     renderTalkingBanner([]);
     if (pttTalking) { pttTalking = false; pttBtn.classList.remove('active'); }
+    isAdmin = false;
+    updatePingGroupBtnVisibility();
     isOnline = false;
     currentGroup = null;
   }
