@@ -374,3 +374,62 @@ input::placeholder { color: var(--muted); }
   padding: 11px 20px; border-radius: 20px; font-size: 13.5px; z-index: 100; max-width: 88%; text-align: center;
   box-shadow: var(--shadow);
 }
+
+/* ---------- หน้าหลัก: แชทสาธารณะ + แผนที่สภาพอากาศ + กล่องข้อความส่วนตัว ---------- */
+.map-hint {
+  font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.5;
+  padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--bg-elev);
+}
+#tab-public-map { position: relative; }
+#weather-map {
+  flex: 1; min-height: 0; width: 100%; background: var(--card);
+}
+#tab-public-map .fab { position: absolute; }
+#btn-add-pin.active {
+  background: linear-gradient(135deg, #2fb0ff, #1a7fd6);
+  box-shadow: 0 0 0 4px rgba(47,176,255,0.28), 0 6px 18px rgba(0,0,0,0.35);
+}
+.tappable-sender { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+
+/* ไอคอนหมุดแบบอิโมจิบนแผนที่ (แทน marker เริ่มต้นของ Leaflet) */
+.weather-pin-icon {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
+}
+
+/* ป๊อปอัพของ Leaflet ใช้พื้นหลังขาวโดยค่าเริ่มต้น - บังคับให้เข้ากับธีมมืดของแอป */
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  background: var(--bg-elev); color: var(--text);
+}
+.leaflet-popup-content-wrapper { border-radius: 14px; }
+.leaflet-popup-content { margin: 12px 14px; }
+.leaflet-container a.leaflet-popup-close-button { color: var(--muted); }
+.pin-popup { min-width: 160px; font-size: 13.5px; }
+.pin-popup-head { font-size: 15px; margin-bottom: 4px; }
+.pin-popup-by { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+.pin-popup-note { margin-bottom: 6px; line-height: 1.5; word-break: break-word; }
+.pin-popup-photo { width: 100%; max-height: 140px; object-fit: cover; border-radius: 10px; margin-bottom: 6px; display: block; }
+.pin-popup-actions { display: flex; justify-content: flex-end; }
+.pin-popup-dm, .pin-popup-del {
+  background: var(--card); border: 1px solid var(--border); color: var(--text);
+  border-radius: 10px; padding: 6px 10px; font-size: 14px;
+}
+
+/* ป๊อปอัพ: เลือกสภาพอากาศ + แนบรูป */
+.weather-cond-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.cond-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 6px; font-size: 22px; color: var(--text);
+}
+.cond-btn span { font-size: 11.5px; }
+.cond-btn.selected { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.pin-photo-preview { margin: 4px 0 10px; }
+.pin-photo-preview img { width: 100%; max-height: 160px; object-fit: cover; border-radius: 12px; display: block; }
+
+/* badge บนไอคอนที่ topbar (เช่นปุ่มข้อความส่วนตัว) - .n-badge เดิมถูก scope ไว้แค่ .nav-btn */
+.icon-btn { position: relative; }
+.icon-btn .n-badge:empty { display: none; }
+.icon-btn .n-badge { position: absolute; top: -2px; right: -4px; }
+.icon-btn .n-badge .badge { min-width: 16px; height: 16px; line-height: 16px; font-size: 10px; padding: 0 4px; }

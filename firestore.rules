@@ -61,5 +61,32 @@ service cloud.firestore {
                     && request.resource.data.senderUid == request.auth.uid;
       allow update, delete: if false;
     }
+
+    // แชทสาธารณะ (หน้าหลัก) - ใครที่ล็อกอิน (anonymous) แล้วก็เข้ามาพิมพ์ได้เลย ไม่ต้องเข้ากลุ่มใดๆ
+    match /publicChatMessages/{msgId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.senderUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // หมุดสภาพอากาศบนแผนที่หน้าหลัก - แสดงเฉพาะหมุดที่ยังไม่ครบ 3 ชม. (กรองฝั่ง client ด้วย query ts)
+    // อนุญาตให้ลบหมุดของตัวเอง หรือหมุดที่เก่าเกิน 6 ชม.แล้ว (ให้ client ไหนก็ได้ช่วยเก็บกวาดหมุดที่หมดอายุจริงๆ ทิ้ง)
+    match /weatherPins/{pinId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if false;
+      allow delete: if isSignedIn() && (
+        resource.data.uid == request.auth.uid ||
+        request.time > resource.data.ts + duration.value(6, 'h')
+      );
+    }
+
+    // กล่องข้อความส่วนตัว (inbox) - เอกสารเดียวแทน "การสนทนากับคนคนหนึ่ง" มองจากมุมของ ownerUid
+    // เขียนได้ทั้งฝั่งตัวเอง (เก็บของตัวเอง) และฝั่งอีกคน (แจ้งว่ามีข้อความใหม่ถึงเขา) แต่ต้องระบุว่าตัวเองเป็นคนส่งข้อความนั้นจริง
+    match /dmThreads/{docId} {
+      allow read: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+      allow create, update: if isSignedIn() && request.resource.data.lastSenderUid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+    }
   }
 }

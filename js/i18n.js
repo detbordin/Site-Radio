@@ -31,7 +31,12 @@ const I18N = (() => {
       role_admin: 'แอดมิน', role_member: 'สมาชิก', status_online: 'ออนไลน์', status_offline: 'ออฟไลน์',
       empty_groups_hint: 'ยังไม่มีกลุ่ม แตะปุ่ม + ด้านล่างเพื่อสร้างกลุ่มใหม่ หรือเข้าร่วมด้วยรหัสที่ได้รับ',
       ptt_target_all: '📢 ทั้งกลุ่ม', code_label: 'รหัส', label_all_group: 'ทั้งกลุ่ม', ptt_who_title: 'วิทยุหาใคร?', radio_waiting: 'รอเพื่อนร่วมทีมออนไลน์...', radio_connected_count: 'เชื่อมต่อวิทยุกับ {n} คน',
-      update_app_title: 'ตรวจสอบและอัปเดตเวอร์ชันล่าสุด'
+      update_app_title: 'ตรวจสอบและอัปเดตเวอร์ชันล่าสุด',
+      public_title: 'หน้าหลัก', dm_inbox_title: 'ข้อความส่วนตัว',
+      weather_map_hint: 'ปักหมุดบอกสภาพอากาศ ณ จุดที่คุณอยู่ - หมุดทั้งหมดจะถูกล้างออกพร้อมกันทุก 3 ชั่วโมง',
+      weather_map_tab: 'แผนที่อากาศ', my_groups_tab: 'กลุ่มของฉัน',
+      pin_modal_title: 'สภาพอากาศตรงนี้เป็นยังไง?', cond_sunny: 'แดดร้อน', cond_cloudy: 'เมฆครึ้ม', cond_rain: 'ฝนตก',
+      pin_note_placeholder: 'รายละเอียดเพิ่มเติม (ถ้ามี)', btn_pin_add_photo: '📷 แนบรูป', btn_pin_submit: 'ปักหมุด'
     },
     en: {
       app_title: 'Site Radio', name_sub: 'Set your name to get started',
@@ -58,7 +63,12 @@ const I18N = (() => {
       role_admin: 'Admin', role_member: 'Member', status_online: 'Online', status_offline: 'Offline',
       empty_groups_hint: 'No groups yet. Tap + below to create one, or join with a code.',
       ptt_target_all: '📢 Whole group', code_label: 'Code', label_all_group: 'Whole group', ptt_who_title: 'Talk to whom?', radio_waiting: 'Waiting for teammates to come online...', radio_connected_count: 'Connected to {n} people',
-      update_app_title: 'Check for and install the latest update'
+      update_app_title: 'Check for and install the latest update',
+      public_title: 'Home', dm_inbox_title: 'Private messages',
+      weather_map_hint: 'Pin the weather where you are - all pins clear together every 3 hours',
+      weather_map_tab: 'Weather map', my_groups_tab: 'My Groups',
+      pin_modal_title: 'What\'s the weather like here?', cond_sunny: 'Sunny', cond_cloudy: 'Cloudy', cond_rain: 'Raining',
+      pin_note_placeholder: 'Add a note (optional)', btn_pin_add_photo: '📷 Attach photo', btn_pin_submit: 'Drop pin'
     },
     zh: {
       app_title: '工地对讲机', name_sub: '设置您的名字以开始使用',
@@ -85,7 +95,12 @@ const I18N = (() => {
       role_admin: '管理员', role_member: '成员', status_online: '在线', status_offline: '离线',
       empty_groups_hint: '还没有群组。点击下方 + 创建新群组，或使用代码加入。',
       ptt_target_all: '📢 全群', code_label: '代码', label_all_group: '全群', ptt_who_title: '对讲给谁？', radio_waiting: '正在等待队友上线...', radio_connected_count: '已连接 {n} 人',
-      update_app_title: '检查并更新到最新版本'
+      update_app_title: '检查并更新到最新版本',
+      public_title: '首页', dm_inbox_title: '私信',
+      weather_map_hint: '在你所在的位置标记天气 - 所有标记每 3 小时会一起清除',
+      weather_map_tab: '天气地图', my_groups_tab: '我的群组',
+      pin_modal_title: '这里的天气怎么样？', cond_sunny: '晴天', cond_cloudy: '多云', cond_rain: '下雨',
+      pin_note_placeholder: '补充说明（可选）', btn_pin_add_photo: '📷 附加照片', btn_pin_submit: '标记'
     },
     km: {
       app_title: 'វិទ្យុការដ្ឋាន', name_sub: 'កំណត់ឈ្មោះរបស់អ្នកដើម្បីចាប់ផ្តើម',
@@ -112,7 +127,12 @@ const I18N = (() => {
       role_admin: 'អ្នកគ្រប់គ្រង', role_member: 'សមាជិក', status_online: 'អនឡាញ', status_offline: 'គ្មានអនឡាញ',
       empty_groups_hint: 'មិនទាន់មានក្រុមទេ។ ចុចប៊ូតុង + ខាងក្រោមដើម្បីបង្កើតក្រុមថ្មី ឬចូលរួមដោយប្រើលេខកូដ។',
       ptt_target_all: '📢 ក្រុមទាំងអស់', code_label: 'កូដ', label_all_group: 'ក្រុមទាំងអស់', ptt_who_title: 'និយាយទៅកាន់អ្នកណា?', radio_waiting: 'កំពុងរង់ចាំសមាជិកក្រុមចូលអនឡាញ...', radio_connected_count: 'បានភ្ជាប់ជាមួយ {n} នាក់',
-      update_app_title: 'ពិនិត្យ និងអាប់ដេតទៅជាកំណែថ្មីបំផុត'
+      update_app_title: 'ពិនិត្យ និងអាប់ដេតទៅជាកំណែថ្មីបំផុត',
+      public_title: 'ទំព័រដើម', dm_inbox_title: 'សារឯកជន',
+      weather_map_hint: 'ចាក់ម្ជុលបង្ហាញអាកាសធាតុនៅកន្លែងអ្នក - ម្ជុលទាំងអស់នឹងត្រូវលុបជាមួយគ្នារៀងរាល់ 3 ម៉ោង',
+      weather_map_tab: 'ផែនទីអាកាសធាតុ', my_groups_tab: 'ក្រុមរបស់ខ្ញុំ',
+      pin_modal_title: 'អាកាសធាតុនៅទីនេះជាយ៉ាងណា?', cond_sunny: 'ថ្ងៃចាំង', cond_cloudy: 'ស្រទុំ', cond_rain: 'ភ្លៀង',
+      pin_note_placeholder: 'ព័ត៌មានបន្ថែម (បើមាន)', btn_pin_add_photo: '📷 ភ្ជាប់រូបភាព', btn_pin_submit: 'ចាក់ម្ជុល'
     },
     my: {
       app_title: 'ဆိုက်ရေဒီယို', name_sub: 'အသုံးပြုရန် သင့်အမည်ကို သတ်မှတ်ပါ',
@@ -139,7 +159,12 @@ const I18N = (() => {
       role_admin: 'အက်ဒမင်', role_member: 'အဖွဲ့ဝင်', status_online: 'အွန်လိုင်း', status_offline: 'အော့ဖ်လိုင်း',
       empty_groups_hint: 'အုပ်စုမရှိသေးပါ။ အောက်ပါ + ကိုနှိပ်ပြီး အုပ်စုအသစ်ဖန်တီးပါ (သို့) ကုဒ်နှင့် ဝင်ရောက်ပါ။',
       ptt_target_all: '📢 အုပ်စုတစ်ခုလုံး', code_label: 'ကုဒ်', label_all_group: 'အုပ်စုတစ်ခုလုံး', ptt_who_title: 'ဘယ်သူ့ကိုပြောမလဲ?', radio_waiting: 'အဖွဲ့ဝင်များ အွန်လိုင်းလာရန် စောင့်နေသည်...', radio_connected_count: 'လူ {n} ဦးနှင့် ချိတ်ဆက်ထားသည်',
-      update_app_title: 'နောက်ဆုံးဗားရှင်းအသစ်ကို စစ်ဆေးပြီး အပ်ဒိတ်လုပ်ရန်'
+      update_app_title: 'နောက်ဆုံးဗားရှင်းအသစ်ကို စစ်ဆေးပြီး အပ်ဒိတ်လုပ်ရန်',
+      public_title: 'ပင်မစာမျက်နှာ', dm_inbox_title: 'ကိုယ်ပိုင်မက်ဆေ့ချ်များ',
+      weather_map_hint: 'သင့်တည်နေရာ၏ ရာသီဥတုကို မှတ်တံဆိပ်ချပါ - မှတ်တံဆိပ်အားလုံးကို ၃ နာရီတိုင်း တစ်ပြိုင်နက် ရှင်းလင်းမည်',
+      weather_map_tab: 'ရာသီဥတုမြေပုံ', my_groups_tab: 'ကျွန်ုပ်၏အုပ်စုများ',
+      pin_modal_title: 'ဒီနေရာက ရာသီဥတု ဘယ်လိုရှိလဲ?', cond_sunny: 'နေပူ', cond_cloudy: 'တိမ်အုံ့', cond_rain: 'မိုးရွာ',
+      pin_note_placeholder: 'အသေးစိတ်ထပ်ဖြည့်ရန် (ရှိလျှင်)', btn_pin_add_photo: '📷 ဓာတ်ပုံ ပူးတွဲရန်', btn_pin_submit: 'မှတ်တံဆိပ်ချမည်'
     },
     lo: {
       app_title: 'ວິທະຍຸໄຊງານ', name_sub: 'ຕັ້ງຊື່ຂອງທ່ານເພື່ອເລີ່ມໃຊ້ງານ',
@@ -166,7 +191,12 @@ const I18N = (() => {
       role_admin: 'ແອັດມິນ', role_member: 'ສະມາຊິກ', status_online: 'ອອນລາຍ', status_offline: 'ອອບລາຍ',
       empty_groups_hint: 'ຍັງບໍ່ມີກຸ່ມ. ກົດປຸ່ມ + ດ້ານລຸ່ມເພື່ອສ້າງກຸ່ມໃໝ່ ຫຼືເຂົ້າຮ່ວມດ້ວຍລະຫັດ.',
       ptt_target_all: '📢 ທັງກຸ່ມ', code_label: 'ລະຫັດ', label_all_group: 'ທັງກຸ່ມ', ptt_who_title: 'ວິທະຍຸຫາໃຜ?', radio_waiting: 'ກຳລັງລໍຖ້າໝູ່ຮ່ວມທີມອອນລາຍ...', radio_connected_count: 'ເຊື່ອມຕໍ່ກັບ {n} ຄົນແລ້ວ',
-      update_app_title: 'ກວດສອບ ແລະ ອັບເດດເປັນເວີຊັນລ່າສຸດ'
+      update_app_title: 'ກວດສອບ ແລະ ອັບເດດເປັນເວີຊັນລ່າສຸດ',
+      public_title: 'ໜ້າຫຼັກ', dm_inbox_title: 'ຂໍ້ຄວາມສ່ວນຕົວ',
+      weather_map_hint: 'ປັກໝຸດບອກສະພາບອາກາດຈຸດທີ່ທ່ານຢູ່ - ໝຸດທັງໝົດຈະຖືກລ້າງອອກພ້ອມກັນທຸກ 3 ຊົ່ວໂມງ',
+      weather_map_tab: 'ແຜນທີ່ອາກາດ', my_groups_tab: 'ກຸ່ມຂອງຂ້ອຍ',
+      pin_modal_title: 'ສະພາບອາກາດຕົງນີ້ເປັນແນວໃດ?', cond_sunny: 'ແດດຮ້ອນ', cond_cloudy: 'ເມກຄື້ມ', cond_rain: 'ຝົນຕົກ',
+      pin_note_placeholder: 'ລາຍລະອຽດເພີ່ມເຕີມ (ຖ້າມີ)', btn_pin_add_photo: '📷 ແນບຮູບ', btn_pin_submit: 'ປັກໝຸດ'
     }
   };
 

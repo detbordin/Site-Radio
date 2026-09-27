@@ -62,16 +62,55 @@
   </div>
 </section>
 
-<!-- หน้ารายการกลุ่ม -->
-<section id="screen-groups" class="screen hidden">
+<!-- หน้าหลัก: แชทสาธารณะ + แผนที่สภาพอากาศ (หน้าแรกของแอป) -->
+<section id="screen-public" class="screen hidden">
   <header class="topbar">
-    <h2 data-i18n="groups_title">กลุ่มของฉัน</h2>
+    <h2 data-i18n="public_title">หน้าหลัก</h2>
+    <button id="btn-dm-inbox" class="icon-btn" data-i18n-title="dm_inbox_title" title="ข้อความส่วนตัว">📩<span class="n-badge"></span></button>
     <button id="btn-update-app" class="icon-btn" data-i18n-title="update_app_title" title="ตรวจสอบและอัปเดตเวอร์ชันล่าสุด">🔄</button>
     <button id="btn-lang" class="icon-btn" title="Language">🌐</button>
     <button id="btn-my-name" class="icon-btn" data-i18n-title="my_profile_title" title="ชื่อของฉัน">👤</button>
   </header>
+
+  <div id="tab-public-chat" class="tab-content active">
+    <div id="public-chat-messages" class="chat-messages"></div>
+    <div class="chat-input-row">
+      <input id="public-chat-input" type="text" data-i18n-placeholder="chat_placeholder" placeholder="พิมพ์ข้อความ...">
+      <button id="btn-mic-public" class="icon-btn" data-i18n-title="mic_title" title="พูดแล้วพิมพ์อัตโนมัติ">🎙️</button>
+      <button id="btn-public-send" class="icon-btn send">➤</button>
+    </div>
+  </div>
+
+  <div id="tab-public-map" class="tab-content">
+    <div class="map-hint" data-i18n="weather_map_hint">ปักหมุดบอกสภาพอากาศ ณ จุดที่คุณอยู่ - หมุดทั้งหมดจะถูกล้างออกพร้อมกันทุก 3 ชั่วโมง</div>
+    <div id="weather-map"></div>
+    <button id="btn-add-pin" class="fab" title="ปักหมุดสภาพอากาศ">📍</button>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-ptab="public-chat"><span class="nav-icon">💬</span><span data-i18n="chat_tab">แชท</span></button>
+    <button class="nav-btn" data-ptab="public-map"><span class="nav-icon">🗺️</span><span data-i18n="weather_map_tab">แผนที่อากาศ</span></button>
+    <button id="btn-goto-groups" class="nav-btn"><span class="nav-icon">👥</span><span data-i18n="my_groups_tab">กลุ่มของฉัน</span></button>
+  </nav>
+</section>
+
+<!-- หน้ารายการกลุ่ม -->
+<section id="screen-groups" class="screen hidden">
+  <header class="topbar">
+    <button id="btn-back-public" class="icon-btn" title="หน้าหลัก">←</button>
+    <h2 data-i18n="groups_title">กลุ่มของฉัน</h2>
+  </header>
   <div id="groups-list" class="groups-list"></div>
   <button id="btn-fab-add" class="fab" title="เพิ่มกลุ่ม">+</button>
+</section>
+
+<!-- กล่องข้อความส่วนตัว (inbox): รายการบทสนทนาทั้งหมด -->
+<section id="screen-dm-inbox" class="screen hidden">
+  <header class="topbar">
+    <button id="btn-back-dm-inbox" class="icon-btn">←</button>
+    <h2 data-i18n="dm_inbox_title">ข้อความส่วนตัว</h2>
+  </header>
+  <div id="dm-inbox-list" class="groups-list"></div>
 </section>
 
 <!-- หน้าห้องกลุ่ม -->
@@ -191,6 +230,26 @@
   </div>
 </div>
 
+<!-- ป๊อปอัพ: ปักหมุดสภาพอากาศ -->
+<div id="modal-weather-pin" class="modal hidden">
+  <div class="modal-card">
+    <h3 data-i18n="pin_modal_title">สภาพอากาศตรงนี้เป็นยังไง?</h3>
+    <div class="weather-cond-row">
+      <button type="button" class="cond-btn" data-cond="sunny">☀️<span data-i18n="cond_sunny">แดดร้อน</span></button>
+      <button type="button" class="cond-btn" data-cond="cloudy">☁️<span data-i18n="cond_cloudy">เมฆครึ้ม</span></button>
+      <button type="button" class="cond-btn" data-cond="rain">🌧️<span data-i18n="cond_rain">ฝนตก</span></button>
+    </div>
+    <input id="pin-note-input" type="text" data-i18n-placeholder="pin_note_placeholder" placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)" maxlength="80">
+    <input id="pin-photo-input" type="file" accept="image/*" class="hidden">
+    <button id="btn-pin-pick-photo" class="btn-secondary" type="button" data-i18n="btn_pin_add_photo">📷 แนบรูป</button>
+    <div id="pin-photo-preview" class="pin-photo-preview hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost modal-close" data-i18n="btn_cancel">ยกเลิก</button>
+      <button id="btn-submit-pin" class="btn-primary" data-i18n="btn_pin_submit">ปักหมุด</button>
+    </div>
+  </div>
+</div>
+
 <!-- ป๊อปอัพ: แก้ไขโปรไฟล์ (ชื่อ + รูป/ไอคอน) -->
 <div id="modal-profile" class="modal hidden">
   <div class="modal-card profile-card">
@@ -267,13 +326,20 @@
 <!-- ไลบรารีสร้าง QR code (ทำงานฝั่งเบราว์เซอร์ผู้ใช้ ไม่เกี่ยวกับ Firebase) -->
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
+<!-- ไลบรารีแผนที่ Leaflet + OpenStreetMap (ฟรี ไม่ต้องขอ API key) สำหรับหมุดสภาพอากาศ -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script src="js/firebase-config.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/identity.js"></script>
 <script src="js/groups.js"></script>
 <script src="js/presence.js"></script>
 <script src="js/chat.js"></script>
+<script src="js/dm-inbox.js"></script>
 <script src="js/dm.js"></script>
+<script src="js/public-chat.js"></script>
+<script src="js/weather-pins.js"></script>
 <script src="js/rtc-common.js"></script>
 <script src="js/mesh.js"></script>
 <script src="js/video-call.js"></script>

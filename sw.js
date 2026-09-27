@@ -2,7 +2,7 @@
 // v2: เปลี่ยนมาใช้กลยุทธ์ network-first สำหรับไฟล์เปลือกแอป
 // เพื่อให้ผู้ใช้ได้โค้ดเวอร์ชันล่าสุดทันทีที่ deploy ใหม่ (ก่อนหน้านี้แคชแบบ cache-first
 // ทำให้เครื่องที่เคยเปิดแอปแล้วยังคงเห็น firebase-config.js รุ่นเก่าค้างอยู่ แม้ deploy ใหม่ไปแล้ว)
-const CACHE_NAME = 'site-radio-shell-v8';
+const CACHE_NAME = 'site-radio-shell-v9';
 const SHELL_FILES = [
   './index.html',
   './css/style.css',
@@ -12,7 +12,10 @@ const SHELL_FILES = [
   './js/groups.js',
   './js/presence.js',
   './js/chat.js',
+  './js/dm-inbox.js',
   './js/dm.js',
+  './js/public-chat.js',
+  './js/weather-pins.js',
   './js/rtc-common.js',
   './js/mesh.js',
   './js/video-call.js',

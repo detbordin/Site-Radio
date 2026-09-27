@@ -148,8 +148,11 @@
   }
 
   // ---------- แชทส่วนตัว 1:1 ----------
-  function openDm(member) {
-    currentDmPeer = { uid: member.uid, name: member.name };
+  // returnScreen: หน้าที่จะกลับไปตอนกดปิดแชทส่วนตัว (มาจากห้องกลุ่ม/หน้าหลัก/กล่องข้อความ)
+  let dmReturnScreen = 'screen-room';
+  function openDm(member, returnScreen) {
+    dmReturnScreen = returnScreen || 'screen-room';
+    currentDmPeer = { uid: member.uid, name: member.name, avatar: member.avatar || null };
     el('dm-peer-name').textContent = member.name;
     showScreen('screen-dm');
     DM.listen(member.uid, (msgs) => {
@@ -157,11 +160,12 @@
       const last = msgs[msgs.length - 1];
       if (last) { setDmLastRead(member.uid, last.id); dmUnreadFlags[member.uid] = false; renderMembers(); }
     });
+    DmInbox.markRead(member.uid).catch(() => {});
   }
   function closeDm() {
     DM.stop();
     currentDmPeer = null;
-    showScreen('screen-room');
+    showScreen(dmReturnScreen);
   }
   el('btn-back-dm').addEventListener('click', closeDm);
 
@@ -187,7 +191,7 @@
     const v = input.value.trim();
     if (!v || !currentDmPeer) return;
     input.value = '';
-    DM.sendText(currentDmPeer.uid, v).catch(() => toast('ส่งข้อความไม่สำเร็จ'));
+    DM.sendText(currentDmPeer, v).catch(() => toast('ส่งข้อความไม่สำเร็จ'));
   }
 
   // ---------- Wake Lock: กันหน้าจอดับ/ล็อกตอนกำลังออนไลน์ ----------
@@ -451,8 +455,10 @@
     el('btn-ptt-target').textContent = I18N.t('ptt_target_all');
     attachVoiceInput('btn-mic-chat', 'chat-input');
     attachVoiceInput('btn-mic-dm', 'dm-input');
+    attachVoiceInput('btn-mic-public', 'public-chat-input');
     await Identity.signIn();
     VideoCall.setMyName(Identity.getName());
+    DmInbox.listen(renderDmInboxBadge); // ตัวเลขแจ้งเตือนข้อความส่วนตัวใหม่ ทำงานอยู่เบื้องหลังตลอดทั้งเซสชัน
 
     // เช็คว่ามาจากลิงก์เชิญ/สแกน QR ไหม (?g=รหัสกลุ่ม&p=รหัสผ่าน)
     const params = new URLSearchParams(location.search);
@@ -468,10 +474,8 @@
     if (!name) {
       showScreen('screen-name');
     } else {
-      showScreen('screen-groups');
-      renderGroupsList();
       requestMediaPermissionsOnce();
-      if (pendingJoin) { const pj = pendingJoin; pendingJoin = null; await autoJoin(pj.code, pj.pass); }
+      await enterAppHome();
     }
   }
 
@@ -480,11 +484,24 @@
     if (!v) { toast('กรุณาใส่ชื่อ'); return; }
     Identity.setName(v);
     VideoCall.setMyName(v);
-    showScreen('screen-groups');
-    renderGroupsList();
     requestMediaPermissionsOnce();
-    if (pendingJoin) { const pj = pendingJoin; pendingJoin = null; await autoJoin(pj.code, pj.pass); }
+    await enterAppHome();
   });
+
+  // เข้าแอปแล้วจะไปที่ไหนก่อน: ถ้ามาจากลิงก์เชิญกลุ่ม (pendingJoin) ให้เข้ากลุ่มนั้นเลย
+  // ไม่งั้นไปหน้าหลัก (แชทสาธารณะ + แผนที่อากาศ) เป็นค่าเริ่มต้น
+  async function enterAppHome() {
+    if (pendingJoin) {
+      const pj = pendingJoin;
+      pendingJoin = null;
+      showScreen('screen-groups');
+      renderGroupsList();
+      await autoJoin(pj.code, pj.pass);
+      return;
+    }
+    showScreen('screen-public');
+    startPublicScreen();
+  }
 
   // เข้าร่วมกลุ่มอัตโนมัติจากลิงก์เชิญ/QR
   async function autoJoin(code, pass) {
@@ -888,15 +905,32 @@
     }
   }
 
-  // ---------- แท็บล่าง ----------
-  document.querySelectorAll('.nav-btn').forEach(btn => {
+  // ---------- แท็บล่าง (ห้องกลุ่ม) ----------
+  // จำกัดขอบเขตแค่ในหน้าห้องกลุ่มเท่านั้น (ไม่งั้นจะไปชนกับแท็บของหน้าหลักที่ใช้คลาสเดียวกัน)
+  document.querySelectorAll('#screen-room .nav-btn[data-tab]').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
   function switchTab(tab) {
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('#screen-room .nav-btn[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('#screen-room .tab-content').forEach(c => c.classList.remove('active'));
     el('tab-' + tab).classList.add('active');
     if (tab === 'chat') markCurrentGroupRead();
+  }
+
+  // ---------- แท็บล่าง (หน้าหลัก: แชทสาธารณะ / แผนที่อากาศ) ----------
+  document.querySelectorAll('#screen-public .nav-btn[data-ptab]').forEach(btn => {
+    btn.addEventListener('click', () => switchPublicTab(btn.dataset.ptab));
+  });
+  function switchPublicTab(tab) {
+    document.querySelectorAll('#screen-public .nav-btn[data-ptab]').forEach(b => b.classList.toggle('active', b.dataset.ptab === tab));
+    document.querySelectorAll('#screen-public .tab-content').forEach(c => c.classList.remove('active'));
+    el('tab-' + tab).classList.add('active');
+    if (tab === 'public-map') {
+      requestAnimationFrame(() => {
+        initWeatherMapIfNeeded();
+        if (weatherMap) weatherMap.invalidateSize();
+      });
+    }
   }
 
   // ---------- แชท ----------
@@ -1183,6 +1217,229 @@
     el('local-video').classList.toggle('cam-off', off);
   });
   el('btn-hangup').addEventListener('click', async () => { await VideoCall.hangUp(); showScreen('screen-room'); });
+
+  // ================== หน้าหลัก: แชทสาธารณะ + แผนที่สภาพอากาศ + กล่องข้อความส่วนตัว ==================
+  let publicChatStarted = false;
+  function startPublicScreen() {
+    if (!publicChatStarted) {
+      publicChatStarted = true;
+      PublicChat.listen(renderPublicMessages);
+    }
+  }
+
+  el('btn-goto-groups').addEventListener('click', () => {
+    showScreen('screen-groups');
+    renderGroupsList();
+  });
+  el('btn-back-public').addEventListener('click', () => showScreen('screen-public'));
+
+  // ---------- แชทสาธารณะ ----------
+  function renderPublicMessages(msgs) {
+    const box = el('public-chat-messages');
+    const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+    box.innerHTML = '';
+    msgs.forEach(m => {
+      const mine = m.senderUid === Identity.getUid();
+      const div = document.createElement('div');
+      div.className = 'msg' + (mine ? ' me' : '');
+      const time = m.createdAt && m.createdAt.toDate ? m.createdAt.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '';
+      div.innerHTML = `${mine ? '' : `<div class="sender tappable-sender">${escapeHtml(m.senderName || '')}</div>`}<div class="text">${escapeHtml(m.text || '')}</div><div class="time">${time}</div>`;
+      if (!mine) {
+        div.querySelector('.sender').addEventListener('click', () => {
+          openDm({ uid: m.senderUid, name: m.senderName, avatar: m.senderAvatar }, 'screen-public');
+        });
+      }
+      box.appendChild(div);
+    });
+    if (nearBottom) box.scrollTop = box.scrollHeight;
+  }
+
+  el('public-chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCurrentPublicText(); });
+  el('btn-public-send').addEventListener('click', sendCurrentPublicText);
+  function sendCurrentPublicText() {
+    const input = el('public-chat-input');
+    const v = input.value.trim();
+    if (!v) return;
+    input.value = '';
+    PublicChat.sendText(v).catch(() => toast('ส่งข้อความไม่สำเร็จ'));
+  }
+
+  // ---------- กล่องข้อความส่วนตัว (inbox) ----------
+  el('btn-dm-inbox').addEventListener('click', () => showScreen('screen-dm-inbox'));
+  el('btn-back-dm-inbox').addEventListener('click', () => showScreen('screen-public'));
+
+  function renderDmInboxBadge(threads) {
+    const count = threads.filter(t => t.unread).length;
+    const badge = document.querySelector('#btn-dm-inbox .n-badge');
+    if (badge) badge.innerHTML = renderBadge(count);
+    renderDmInboxList(threads);
+  }
+
+  function renderDmInboxList(threads) {
+    const box = el('dm-inbox-list');
+    if (!box) return;
+    box.innerHTML = '';
+    if (threads.length === 0) {
+      box.innerHTML = `<div class="empty-hint">ยังไม่มีข้อความส่วนตัว แตะชื่อใครก็ได้ในแชทสาธารณะเพื่อเริ่มคุย</div>`;
+      return;
+    }
+    threads.forEach(t => {
+      const div = document.createElement('div');
+      div.className = 'group-item';
+      const time = t.lastTs && t.lastTs.toDate ? t.lastTs.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '';
+      div.innerHTML = `
+        <div class="avatar">${avatarHtml({ name: t.peerName, avatar: t.peerAvatar })}</div>
+        <div class="info">
+          <div class="g-name">${escapeHtml(t.peerName || '')}${t.unread ? '<span class="dm-dot"></span>' : ''}</div>
+          <div class="g-role">${escapeHtml(t.lastText || '')}</div>
+        </div>
+        <div class="chevron">${time}</div>`;
+      div.addEventListener('click', () => openDm({ uid: t.peerUid, name: t.peerName, avatar: t.peerAvatar }, 'screen-dm-inbox'));
+      box.appendChild(div);
+    });
+  }
+
+  // ---------- แผนที่สภาพอากาศ (Leaflet + OpenStreetMap ฟรี ไม่ต้องขอ API key) ----------
+  const WEATHER_ICONS = { sunny: '☀️', cloudy: '☁️', rain: '🌧️' };
+  const WEATHER_LABELS = { sunny: I18N.t('cond_sunny'), cloudy: I18N.t('cond_cloudy'), rain: I18N.t('cond_rain') };
+  let weatherMap = null;
+  let weatherMarkers = {};
+  let weatherPinsStarted = false;
+  let addPinMode = false;
+  let pendingPinLatLng = null;
+  let pendingPinCondition = null;
+  let pendingPinPhotoDataUrl = null;
+
+  function initWeatherMapIfNeeded() {
+    if (weatherMap || typeof L === 'undefined') return;
+    weatherMap = L.map('weather-map', { zoomControl: true }).setView([13.7563, 100.5018], 6); // ค่าเริ่มต้น: กรุงเทพฯ
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+    }).addTo(weatherMap);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        weatherMap.setView([pos.coords.latitude, pos.coords.longitude], 12);
+      }, () => {}, { timeout: 5000 });
+    }
+    weatherMap.on('click', (e) => {
+      if (!addPinMode) return;
+      pendingPinLatLng = e.latlng;
+      addPinMode = false;
+      el('btn-add-pin').classList.remove('active');
+      openWeatherPinModal();
+    });
+    if (!weatherPinsStarted) {
+      weatherPinsStarted = true;
+      WeatherPins.listen(renderWeatherPins);
+    }
+  }
+
+  el('btn-add-pin').addEventListener('click', () => {
+    addPinMode = !addPinMode;
+    el('btn-add-pin').classList.toggle('active', addPinMode);
+    toast(addPinMode ? 'แตะบนแผนที่ตรงตำแหน่งที่ต้องการปักหมุด' : 'ยกเลิกการปักหมุด');
+  });
+
+  function renderWeatherPins(pins) {
+    if (!weatherMap) return;
+    const seen = {};
+    pins.forEach(p => {
+      seen[p.id] = true;
+      if (weatherMarkers[p.id]) {
+        weatherMarkers[p.id].setLatLng([p.lat, p.lng]);
+      } else {
+        const icon = L.divIcon({ className: 'weather-pin-icon', html: `<span>${WEATHER_ICONS[p.condition] || '📍'}</span>`, iconSize: [34, 34] });
+        const marker = L.marker([p.lat, p.lng], { icon }).addTo(weatherMap);
+        marker.bindPopup(() => buildPinPopupHtml(p));
+        marker.on('popupopen', () => wirePinPopup(p));
+        weatherMarkers[p.id] = marker;
+      }
+    });
+    Object.keys(weatherMarkers).forEach(id => {
+      if (!seen[id]) { weatherMap.removeLayer(weatherMarkers[id]); delete weatherMarkers[id]; }
+    });
+  }
+
+  function buildPinPopupHtml(p) {
+    const time = p.ts && p.ts.toDate ? p.ts.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '';
+    const photo = p.photoDataUrl ? `<img class="pin-popup-photo" src="${p.photoDataUrl}">` : '';
+    const mine = p.uid === Identity.getUid();
+    const avatarJson = escapeHtml(JSON.stringify(p.avatar || null));
+    return `
+      <div class="pin-popup">
+        <div class="pin-popup-head">${WEATHER_ICONS[p.condition] || '📍'} <b>${escapeHtml(WEATHER_LABELS[p.condition] || '')}</b></div>
+        <div class="pin-popup-by">${escapeHtml(p.name || '')} · ${time}</div>
+        ${p.note ? `<div class="pin-popup-note">${escapeHtml(p.note)}</div>` : ''}
+        ${photo}
+        <div class="pin-popup-actions">
+          ${mine
+            ? `<button type="button" class="pin-popup-del" data-pin="${p.id}">🗑️</button>`
+            : `<button type="button" class="pin-popup-dm" data-uid="${p.uid}" data-name="${escapeHtml(p.name || '')}" data-avatar='${avatarJson}'>💬</button>`}
+        </div>
+      </div>`;
+  }
+
+  function wirePinPopup(p) {
+    if (!weatherMarkers[p.id]) return;
+    const popup = weatherMarkers[p.id].getPopup();
+    const node = popup && popup.getElement ? popup.getElement() : null;
+    if (!node) return;
+    const dmBtn = node.querySelector('.pin-popup-dm');
+    if (dmBtn) dmBtn.addEventListener('click', () => {
+      let avatar = null;
+      try { avatar = JSON.parse(dmBtn.dataset.avatar); } catch (err) {}
+      weatherMap.closePopup();
+      openDm({ uid: dmBtn.dataset.uid, name: dmBtn.dataset.name, avatar }, 'screen-public');
+    });
+    const delBtn = node.querySelector('.pin-popup-del');
+    if (delBtn) delBtn.addEventListener('click', async () => {
+      if (!confirm('ลบหมุดนี้ใช่หรือไม่?')) return;
+      try { await WeatherPins.removePin(delBtn.dataset.pin); weatherMap.closePopup(); }
+      catch (err) { toast('ลบไม่สำเร็จ'); }
+    });
+  }
+
+  // ---------- ป๊อปอัพปักหมุดสภาพอากาศ ----------
+  function openWeatherPinModal() {
+    pendingPinCondition = null;
+    pendingPinPhotoDataUrl = null;
+    el('pin-note-input').value = '';
+    el('pin-photo-preview').classList.add('hidden');
+    el('pin-photo-preview').innerHTML = '';
+    document.querySelectorAll('#modal-weather-pin .cond-btn').forEach(b => b.classList.remove('selected'));
+    showModal('modal-weather-pin');
+  }
+  document.querySelectorAll('#modal-weather-pin .cond-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      pendingPinCondition = b.dataset.cond;
+      document.querySelectorAll('#modal-weather-pin .cond-btn').forEach(x => x.classList.toggle('selected', x === b));
+    });
+  });
+  el('btn-pin-pick-photo').addEventListener('click', () => el('pin-photo-input').click());
+  el('pin-photo-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      pendingPinPhotoDataUrl = await resizeImageToDataUrl(file, 480, 0.6);
+      el('pin-photo-preview').classList.remove('hidden');
+      el('pin-photo-preview').innerHTML = `<img src="${pendingPinPhotoDataUrl}">`;
+    } catch (err) { toast('แนบรูปไม่สำเร็จ'); }
+  });
+  el('btn-submit-pin').addEventListener('click', async () => {
+    if (!pendingPinCondition) { toast('เลือกสภาพอากาศก่อน'); return; }
+    if (!pendingPinLatLng) { toast('ยังไม่ได้เลือกตำแหน่งบนแผนที่'); return; }
+    try {
+      await WeatherPins.addPin({
+        lat: pendingPinLatLng.lat, lng: pendingPinLatLng.lng,
+        condition: pendingPinCondition, note: el('pin-note-input').value.trim(),
+        photoDataUrl: pendingPinPhotoDataUrl
+      });
+      hideModal('modal-weather-pin');
+      toast('ปักหมุดแล้ว');
+      pendingPinLatLng = null;
+    } catch (e) { toast('ปักหมุดไม่สำเร็จ'); }
+  });
 
   function escapeHtml(s) {
     return (s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
