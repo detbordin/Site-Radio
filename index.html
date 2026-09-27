@@ -45,6 +45,9 @@
     <button id="btn-room-menu" class="icon-btn" title="เมนู">⋮</button>
   </header>
 
+  <!-- แสดงชื่อ+รูปคนที่กำลังกดวิทยุพูดอยู่ ให้เห็นตลอดไม่ว่าจะอยู่แท็บไหน -->
+  <div id="onair-banner" class="onair-banner hidden"></div>
+
   <div id="tab-chat" class="tab-content active">
     <div id="chat-messages" class="chat-messages"></div>
     <div class="chat-input-row">
@@ -61,7 +64,6 @@
   </div>
 
   <div id="tab-radio" class="tab-content radio-tab">
-    <div id="onair-banner" class="onair-banner hidden"></div>
     <button id="btn-ping-group" class="alert-btn">🔔 กดแจ้งเตือนทั้งกลุ่ม (ทุกเครื่องจะได้ยินเสียง)</button>
     <button id="btn-ptt-target" class="target-chip">📢 ทั้งกลุ่ม</button>
     <button id="btn-ptt" class="ptt-button">

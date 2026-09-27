@@ -585,13 +585,7 @@
       }, 6000);
 
       await Mesh.start(g.id, Identity.getUid());
-      Mesh.onTalking((talkingUids) => {
-        const banner = el('onair-banner');
-        if (talkingUids.length === 0) { banner.classList.add('hidden'); return; }
-        const names = talkingUids.map(uid => nameOf(uid)).join(', ');
-        banner.textContent = `🔊 ${names} กำลังพูด`;
-        banner.classList.remove('hidden');
-      });
+      Mesh.onTalking(renderTalkingBanner);
 
       VideoCall.listenForIncoming(g.id, Identity.getUid());
       VideoCall.setUiHandlers({
@@ -611,6 +605,7 @@
       VideoCall.stopListening();
       presenceCache = {};
       renderMembers();
+      renderTalkingBanner([]);
       el('room-sub').textContent = 'ออฟไลน์';
       el('radio-status').textContent = 'กดปุ่มออนไลน์เพื่อเริ่มใช้วิทยุ';
       toast('⚪ ออฟไลน์แล้ว');
@@ -636,6 +631,19 @@
     return m ? m.name : (presenceCache[uid] ? presenceCache[uid].name : 'ไม่ทราบชื่อ');
   }
 
+  // แสดงชื่อ+รูปคนที่กำลังกดวิทยุพูดอยู่ ให้เห็นตลอดทุกแท็บในห้อง (ไม่ใช่แค่แท็บวิทยุ)
+  // เพื่อให้รู้ทันทีว่าใครกำลังพูดอยู่แม้กำลังดูแชท/สมาชิกอยู่ก็ตาม
+  function renderTalkingBanner(talkingUids) {
+    const banner = el('onair-banner');
+    if (!talkingUids || talkingUids.length === 0) { banner.classList.add('hidden'); banner.innerHTML = ''; return; }
+    banner.innerHTML = talkingUids.map(uid => {
+      const m = membersCache.find(x => x.uid === uid);
+      const name = m ? m.name : nameOf(uid);
+      return `<span class="tb-chip"><span class="tb-avatar">${avatarHtml(m || { name })}</span>🔊 ${escapeHtml(name)}</span>`;
+    }).join('');
+    banner.classList.remove('hidden');
+  }
+
   function leaveRoomCleanup() {
     Chat.stop();
     if (unsubMembers) unsubMembers();
@@ -647,6 +655,7 @@
     if (pttResyncTimer) { clearInterval(pttResyncTimer); pttResyncTimer = null; }
     if (currentGroup) unwatchGroupPing(currentGroup.id);
     membersCache.forEach(m => { if (m.uid !== Identity.getUid()) unwatchDmUnread(m.uid); });
+    renderTalkingBanner([]);
     isOnline = false;
     currentGroup = null;
   }
