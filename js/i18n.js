@@ -12,7 +12,7 @@ const I18N = (() => {
       groups_title: 'กลุ่มของฉัน', my_profile_title: 'ชื่อของฉัน', lang_title: 'ภาษา',
       chat_tab: 'แชท', members_tab: 'สมาชิก', radio_tab: 'วิทยุ',
       chat_placeholder: 'พิมพ์ข้อความ...', mic_title: 'พูดแล้วพิมพ์อัตโนมัติ',
-      ping_group_btn: '🔔 กดแจ้งเตือนทั้งกลุ่ม (ทุกเครื่องจะได้ยินเสียง)', ptt_label: 'กดค้างเพื่อพูด',
+      ping_group_btn: '🔔 กดแจ้งเตือนทั้งกลุ่ม (ทุกเครื่องจะได้ยินเสียง)', ptt_label: 'แตะเพื่อพูด',
       radio_connecting: 'กำลังเชื่อมต่อวิทยุ...', dm_placeholder: 'พิมพ์ข้อความส่วนตัว...',
       dm_default_title: 'ข้อความส่วนตัว', ping_dm_title: 'เรียกเตือน',
       modal_create_title: 'สร้างกลุ่มใหม่', create_name_placeholder: 'ชื่อกลุ่ม เช่น ไซต์งานพระราม 9',
@@ -31,7 +31,7 @@ const I18N = (() => {
       role_admin: 'แอดมิน', role_member: 'สมาชิก', status_online: 'ออนไลน์', status_offline: 'ออฟไลน์',
       empty_groups_hint: 'ยังไม่มีกลุ่ม แตะปุ่ม + ด้านล่างเพื่อสร้างกลุ่มใหม่ หรือเข้าร่วมด้วยรหัสที่ได้รับ',
       ptt_target_all: '📢 ทั้งกลุ่ม', code_label: 'รหัส', label_all_group: 'ทั้งกลุ่ม', ptt_who_title: 'วิทยุหาใคร?', radio_waiting: 'รอเพื่อนร่วมทีมออนไลน์...', radio_connected_count: 'เชื่อมต่อวิทยุกับ {n} คน',
-      ptt_lock_title: 'ล็อคค้างพูด (ไม่ต้องกดนิ้วแช่)', ptt_label_locked: 'แตะเพื่อพูด/หยุดพูด (ล็อคอยู่)'
+      update_app_title: 'ตรวจสอบและอัปเดตเวอร์ชันล่าสุด'
     },
     en: {
       app_title: 'Site Radio', name_sub: 'Set your name to get started',
@@ -39,7 +39,7 @@ const I18N = (() => {
       groups_title: 'My Groups', my_profile_title: 'My Profile', lang_title: 'Language',
       chat_tab: 'Chat', members_tab: 'Members', radio_tab: 'Radio',
       chat_placeholder: 'Type a message...', mic_title: 'Speak to type',
-      ping_group_btn: '🔔 Alert whole group (every device will hear it)', ptt_label: 'Hold to talk',
+      ping_group_btn: '🔔 Alert whole group (every device will hear it)', ptt_label: 'Tap to talk',
       radio_connecting: 'Connecting radio...', dm_placeholder: 'Type a private message...',
       dm_default_title: 'Private message', ping_dm_title: 'Alert',
       modal_create_title: 'Create new group', create_name_placeholder: 'Group name, e.g. Rama 9 Site',
@@ -58,7 +58,7 @@ const I18N = (() => {
       role_admin: 'Admin', role_member: 'Member', status_online: 'Online', status_offline: 'Offline',
       empty_groups_hint: 'No groups yet. Tap + below to create one, or join with a code.',
       ptt_target_all: '📢 Whole group', code_label: 'Code', label_all_group: 'Whole group', ptt_who_title: 'Talk to whom?', radio_waiting: 'Waiting for teammates to come online...', radio_connected_count: 'Connected to {n} people',
-      ptt_lock_title: 'Lock to keep talking (no need to hold your finger down)', ptt_label_locked: 'Tap to talk / stop (locked)'
+      update_app_title: 'Check for and install the latest update'
     },
     zh: {
       app_title: '工地对讲机', name_sub: '设置您的名字以开始使用',
@@ -66,7 +66,7 @@ const I18N = (() => {
       groups_title: '我的群组', my_profile_title: '我的资料', lang_title: '语言',
       chat_tab: '聊天', members_tab: '成员', radio_tab: '对讲',
       chat_placeholder: '输入消息...', mic_title: '语音输入',
-      ping_group_btn: '🔔 提醒全群（所有设备都会响）', ptt_label: '按住说话',
+      ping_group_btn: '🔔 提醒全群（所有设备都会响）', ptt_label: '点击说话',
       radio_connecting: '正在连接对讲...', dm_placeholder: '输入私信...',
       dm_default_title: '私信', ping_dm_title: '提醒',
       modal_create_title: '创建新群组', create_name_placeholder: '群组名称，例如 拉玛九工地',
@@ -85,7 +85,7 @@ const I18N = (() => {
       role_admin: '管理员', role_member: '成员', status_online: '在线', status_offline: '离线',
       empty_groups_hint: '还没有群组。点击下方 + 创建新群组，或使用代码加入。',
       ptt_target_all: '📢 全群', code_label: '代码', label_all_group: '全群', ptt_who_title: '对讲给谁？', radio_waiting: '正在等待队友上线...', radio_connected_count: '已连接 {n} 人',
-      ptt_lock_title: '锁定持续通话（无需一直按住）', ptt_label_locked: '点击开始/停止说话（已锁定）'
+      update_app_title: '检查并更新到最新版本'
     },
     km: {
       app_title: 'វិទ្យុការដ្ឋាន', name_sub: 'កំណត់ឈ្មោះរបស់អ្នកដើម្បីចាប់ផ្តើម',
@@ -93,7 +93,7 @@ const I18N = (() => {
       groups_title: 'ក្រុមរបស់ខ្ញុំ', my_profile_title: 'ប្រវត្តិរូបរបស់ខ្ញុំ', lang_title: 'ភាសា',
       chat_tab: 'ជជែក', members_tab: 'សមាជិក', radio_tab: 'វិទ្យុ',
       chat_placeholder: 'វាយសារ...', mic_title: 'និយាយដើម្បីវាយអក្សរ',
-      ping_group_btn: '🔔 ជូនដំណឹងដល់ក្រុមទាំងអស់ (គ្រប់ឧបករណ៍នឹងឮ)', ptt_label: 'ចុចឱ្យជាប់ដើម្បីនិយាយ',
+      ping_group_btn: '🔔 ជូនដំណឹងដល់ក្រុមទាំងអស់ (គ្រប់ឧបករណ៍នឹងឮ)', ptt_label: 'ចុចដើម្បីនិយាយ',
       radio_connecting: 'កំពុងភ្ជាប់វិទ្យុ...', dm_placeholder: 'វាយសារឯកជន...',
       dm_default_title: 'សារឯកជន', ping_dm_title: 'ជូនដំណឹង',
       modal_create_title: 'បង្កើតក្រុមថ្មី', create_name_placeholder: 'ឈ្មោះក្រុម ឧទាហរណ៍ ការដ្ឋាន Rama 9',
@@ -112,7 +112,7 @@ const I18N = (() => {
       role_admin: 'អ្នកគ្រប់គ្រង', role_member: 'សមាជិក', status_online: 'អនឡាញ', status_offline: 'គ្មានអនឡាញ',
       empty_groups_hint: 'មិនទាន់មានក្រុមទេ។ ចុចប៊ូតុង + ខាងក្រោមដើម្បីបង្កើតក្រុមថ្មី ឬចូលរួមដោយប្រើលេខកូដ។',
       ptt_target_all: '📢 ក្រុមទាំងអស់', code_label: 'កូដ', label_all_group: 'ក្រុមទាំងអស់', ptt_who_title: 'និយាយទៅកាន់អ្នកណា?', radio_waiting: 'កំពុងរង់ចាំសមាជិកក្រុមចូលអនឡាញ...', radio_connected_count: 'បានភ្ជាប់ជាមួយ {n} នាក់',
-      ptt_lock_title: 'ចាក់សោដើម្បីនិយាយបន្ត (មិនចាំបាច់ចុចឱ្យជាប់)', ptt_label_locked: 'ចុចដើម្បីនិយាយ/ឈប់ (កំពុងចាក់សោ)'
+      update_app_title: 'ពិនិត្យ និងអាប់ដេតទៅជាកំណែថ្មីបំផុត'
     },
     my: {
       app_title: 'ဆိုက်ရေဒီယို', name_sub: 'အသုံးပြုရန် သင့်အမည်ကို သတ်မှတ်ပါ',
@@ -120,7 +120,7 @@ const I18N = (() => {
       groups_title: 'ကျွန်ုပ်၏အုပ်စုများ', my_profile_title: 'ကျွန်ုပ်၏ပရိုဖိုင်', lang_title: 'ဘာသာစကား',
       chat_tab: 'စကားပြော', members_tab: 'အဖွဲ့ဝင်များ', radio_tab: 'ရေဒီယို',
       chat_placeholder: 'မက်ဆေ့ချ်ရိုက်ပါ...', mic_title: 'ပြောပြီး အလိုအလျောက်စာရိုက်ရန်',
-      ping_group_btn: '🔔 အုပ်စုတစ်ခုလုံးကို သတိပေးမည် (စက်အားလုံးကြားရမည်)', ptt_label: 'ပြောရန် ဖိထားပါ',
+      ping_group_btn: '🔔 အုပ်စုတစ်ခုလုံးကို သတိပေးမည် (စက်အားလုံးကြားရမည်)', ptt_label: 'ပြောရန် နှိပ်ပါ',
       radio_connecting: 'ရေဒီယိုချိတ်ဆက်နေသည်...', dm_placeholder: 'ကိုယ်ပိုင်မက်ဆေ့ချ်ရိုက်ပါ...',
       dm_default_title: 'ကိုယ်ပိုင်မက်ဆေ့ချ်', ping_dm_title: 'သတိပေးရန်',
       modal_create_title: 'အုပ်စုအသစ်ဖန်တီးရန်', create_name_placeholder: 'အုပ်စု အမည် ဥပမာ- Rama 9 ဆိုက်',
@@ -139,7 +139,7 @@ const I18N = (() => {
       role_admin: 'အက်ဒမင်', role_member: 'အဖွဲ့ဝင်', status_online: 'အွန်လိုင်း', status_offline: 'အော့ဖ်လိုင်း',
       empty_groups_hint: 'အုပ်စုမရှိသေးပါ။ အောက်ပါ + ကိုနှိပ်ပြီး အုပ်စုအသစ်ဖန်တီးပါ (သို့) ကုဒ်နှင့် ဝင်ရောက်ပါ။',
       ptt_target_all: '📢 အုပ်စုတစ်ခုလုံး', code_label: 'ကုဒ်', label_all_group: 'အုပ်စုတစ်ခုလုံး', ptt_who_title: 'ဘယ်သူ့ကိုပြောမလဲ?', radio_waiting: 'အဖွဲ့ဝင်များ အွန်လိုင်းလာရန် စောင့်နေသည်...', radio_connected_count: 'လူ {n} ဦးနှင့် ချိတ်ဆက်ထားသည်',
-      ptt_lock_title: 'ဆက်ပြောရန် လော့ခ်ချရန် (လက်ချောင်းဖိထားစရာမလို)', ptt_label_locked: 'ပြော/ရပ်ရန် နှိပ်ပါ (လော့ခ်ချထားသည်)'
+      update_app_title: 'နောက်ဆုံးဗားရှင်းအသစ်ကို စစ်ဆေးပြီး အပ်ဒိတ်လုပ်ရန်'
     },
     lo: {
       app_title: 'ວິທະຍຸໄຊງານ', name_sub: 'ຕັ້ງຊື່ຂອງທ່ານເພື່ອເລີ່ມໃຊ້ງານ',
@@ -147,7 +147,7 @@ const I18N = (() => {
       groups_title: 'ກຸ່ມຂອງຂ້ອຍ', my_profile_title: 'ໂປຣໄຟລ໌ຂອງຂ້ອຍ', lang_title: 'ພາສາ',
       chat_tab: 'ແຊັດ', members_tab: 'ສະມາຊິກ', radio_tab: 'ວິທະຍຸ',
       chat_placeholder: 'ພິມຂໍ້ຄວາມ...', mic_title: 'ເວົ້າແລ້ວພິມອັດຕະໂນມັດ',
-      ping_group_btn: '🔔 ແຈ້ງເຕືອນທັງກຸ່ມ (ທຸກເຄື່ອງຈະໄດ້ຍິນ)', ptt_label: 'ກົດຄ້າງເພື່ອເວົ້າ',
+      ping_group_btn: '🔔 ແຈ້ງເຕືອນທັງກຸ່ມ (ທຸກເຄື່ອງຈະໄດ້ຍິນ)', ptt_label: 'ແຕະເພື່ອເວົ້າ',
       radio_connecting: 'ກຳລັງເຊື່ອມຕໍ່ວິທະຍຸ...', dm_placeholder: 'ພິມຂໍ້ຄວາມສ່ວນຕົວ...',
       dm_default_title: 'ຂໍ້ຄວາມສ່ວນຕົວ', ping_dm_title: 'ແຈ້ງເຕືອນ',
       modal_create_title: 'ສ້າງກຸ່ມໃໝ່', create_name_placeholder: 'ຊື່ກຸ່ມ ເຊັ່ນ ໄຊງານພຣະລາມ 9',
@@ -166,7 +166,7 @@ const I18N = (() => {
       role_admin: 'ແອັດມິນ', role_member: 'ສະມາຊິກ', status_online: 'ອອນລາຍ', status_offline: 'ອອບລາຍ',
       empty_groups_hint: 'ຍັງບໍ່ມີກຸ່ມ. ກົດປຸ່ມ + ດ້ານລຸ່ມເພື່ອສ້າງກຸ່ມໃໝ່ ຫຼືເຂົ້າຮ່ວມດ້ວຍລະຫັດ.',
       ptt_target_all: '📢 ທັງກຸ່ມ', code_label: 'ລະຫັດ', label_all_group: 'ທັງກຸ່ມ', ptt_who_title: 'ວິທະຍຸຫາໃຜ?', radio_waiting: 'ກຳລັງລໍຖ້າໝູ່ຮ່ວມທີມອອນລາຍ...', radio_connected_count: 'ເຊື່ອມຕໍ່ກັບ {n} ຄົນແລ້ວ',
-      ptt_lock_title: 'ລັອກເພື່ອເວົ້າຕໍ່ (ບໍ່ຕ້ອງກົດຄ້າງໄວ້)', ptt_label_locked: 'ແຕະເພື່ອເວົ້າ/ຢຸດ (ລັອກຢູ່)'
+      update_app_title: 'ກວດສອບ ແລະ ອັບເດດເປັນເວີຊັນລ່າສຸດ'
     }
   };
 

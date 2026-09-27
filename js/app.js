@@ -556,6 +556,27 @@
     }
   }
 
+  // ---------- ตรวจสอบ/บังคับอัปเดตแอปเป็นเวอร์ชันล่าสุด ----------
+  // ใช้สำหรับคนที่เคยเปิด/ติดตั้งแอปไปแล้ว แต่เครื่องยังค้างแคชเวอร์ชันเก่าอยู่
+  // กดแล้วจะล้างแคชทั้งหมด + ถอด service worker เก่าออก แล้วโหลดหน้าใหม่จากเซิร์ฟเวอร์ทันที
+  el('btn-update-app').addEventListener('click', async () => {
+    toast('กำลังตรวจสอบอัปเดต...', 2000);
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+      if (window.caches) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+    } catch (e) { /* ล้างไม่สำเร็จก็ยังรีโหลดต่อได้ตามปกติ */ }
+    // เติม query string กันบราวเซอร์ดึง index.html จากแคชของตัวเองซ้ำ
+    const url = new URL(location.href);
+    url.searchParams.set('_u', Date.now().toString());
+    location.replace(url.toString());
+  });
+
   // ---------- รายการกลุ่ม ----------
   function renderGroupsList() {
     const list = Groups.getMyGroups();
@@ -739,6 +760,7 @@
       presenceCache = {};
       renderMembers();
       renderTalkingBanner([]);
+      if (pttTalking) { pttTalking = false; pttBtn.classList.remove('active'); }
       el('room-sub').textContent = I18N.t('status_offline');
       el('radio-status').textContent = I18N.t('radio_waiting');
       toast('⚪ ออฟไลน์แล้ว');
@@ -793,6 +815,7 @@
     if (currentGroup) unwatchGroupPing(currentGroup.id);
     membersCache.forEach(m => { if (m.uid !== Identity.getUid()) unwatchDmUnread(m.uid); });
     renderTalkingBanner([]);
+    if (pttTalking) { pttTalking = false; pttBtn.classList.remove('active'); }
     isOnline = false;
     currentGroup = null;
   }
@@ -1038,54 +1061,20 @@
   }
 
   const pttBtn = el('btn-ptt');
-  const pttLockBtn = el('btn-ptt-lock');
-  let pttLocked = false;       // โหมดล็อคค้างพูด (ไม่ต้องกดนิ้วแช่)
-  let pttLockedTalking = false; // ตอนนี้กำลังพูดค้างอยู่เพราะล็อค (ยังไม่ได้ปล่อยนิ้ว)
+  let pttTalking = false; // แตะครั้งแรกเริ่มพูด แตะอีกครั้งหยุดพูด (ไม่ต้องกดค้าง)
 
-  function pttStart(e) {
+  function togglePtt(e) {
     e.preventDefault();
-    if (pttLocked) {
-      // โหมดล็อค: แตะครั้งแรกเริ่มพูดค้างไว้เลย, แตะซ้ำเพื่อหยุดพูด
-      if (pttLockedTalking) {
-        pttBtn.classList.remove('active');
-        Mesh.pttUp();
-        pttLockedTalking = false;
-      } else {
-        pttBtn.classList.add('active');
-        Mesh.pttDown(pttTarget);
-        pttLockedTalking = true;
-      }
-      return;
-    }
-    pttBtn.classList.add('active');
-    Mesh.pttDown(pttTarget);
-  }
-  function pttEnd(e) {
-    e.preventDefault();
-    if (pttLocked) return; // โหมดล็อค: ปล่อยนิ้วไม่ต้องหยุดพูด
-    pttBtn.classList.remove('active');
-    Mesh.pttUp();
-  }
-  pttBtn.addEventListener('mousedown', pttStart);
-  pttBtn.addEventListener('touchstart', pttStart, { passive: false });
-  pttBtn.addEventListener('mouseup', pttEnd);
-  pttBtn.addEventListener('mouseleave', pttEnd);
-  pttBtn.addEventListener('touchend', pttEnd);
-  pttBtn.addEventListener('touchcancel', pttEnd);
-
-  pttLockBtn.addEventListener('click', () => {
-    pttLocked = !pttLocked;
-    pttLockBtn.classList.toggle('active', pttLocked);
-    pttLockBtn.textContent = pttLocked ? '🔒' : '🔓';
-    pttBtn.querySelector('.ptt-label').textContent = pttLocked ? I18N.t('ptt_label_locked') : I18N.t('ptt_label');
-    if (!pttLocked && pttLockedTalking) {
-      // ปิดล็อคระหว่างกำลังพูดค้างอยู่ -> หยุดพูดทันที
+    pttTalking = !pttTalking;
+    if (pttTalking) {
+      pttBtn.classList.add('active');
+      Mesh.pttDown(pttTarget);
+    } else {
       pttBtn.classList.remove('active');
       Mesh.pttUp();
-      pttLockedTalking = false;
     }
-    toast(pttLocked ? 'ล็อคไมค์แล้ว - แตะปุ่มวิทยุอีกครั้งเพื่อหยุดพูด' : 'ปลดล็อคแล้ว - กลับมากดค้างเพื่อพูดตามปกติ');
-  });
+  }
+  pttBtn.addEventListener('click', togglePtt);
 
   // ---------- วิดีโอคอล ----------
   let pendingIncoming = null;

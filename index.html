@@ -66,6 +66,7 @@
 <section id="screen-groups" class="screen hidden">
   <header class="topbar">
     <h2 data-i18n="groups_title">กลุ่มของฉัน</h2>
+    <button id="btn-update-app" class="icon-btn" data-i18n-title="update_app_title" title="ตรวจสอบและอัปเดตเวอร์ชันล่าสุด">🔄</button>
     <button id="btn-lang" class="icon-btn" title="Language">🌐</button>
     <button id="btn-my-name" class="icon-btn" data-i18n-title="my_profile_title" title="ชื่อของฉัน">👤</button>
   </header>
@@ -106,13 +107,10 @@
 
   <div id="tab-radio" class="tab-content radio-tab">
     <button id="btn-ping-group" class="alert-btn" data-i18n="ping_group_btn">🔔 กดแจ้งเตือนทั้งกลุ่ม (ทุกเครื่องจะได้ยินเสียง)</button>
-    <div class="ptt-row">
-      <button id="btn-ptt-target" class="target-chip">📢 ทั้งกลุ่ม</button>
-      <button id="btn-ptt-lock" class="lock-chip" data-i18n-title="ptt_lock_title" title="ล็อคค้างพูด">🔓</button>
-    </div>
+    <button id="btn-ptt-target" class="target-chip">📢 ทั้งกลุ่ม</button>
     <button id="btn-ptt" class="ptt-button">
       <span class="ptt-icon">🎙️</span>
-      <span class="ptt-label" data-i18n="ptt_label">กดค้างเพื่อพูด</span>
+      <span class="ptt-label" data-i18n="ptt_label">แตะเพื่อพูด</span>
     </button>
     <div id="radio-status" class="radio-status" data-i18n="radio_connecting">กำลังเชื่อมต่อวิทยุ...</div>
   </div>
