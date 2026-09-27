@@ -14,14 +14,18 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
     }
 
+    // แอดมินร่วมได้กี่คนก็ได้ - เช็คจาก role ในเอกสารสมาชิกของผู้ขอเอง (ไม่ใช่แค่คนสร้างกลุ่มคนเดียวเหมือนเดิม)
     function isAdmin(groupId) {
-      return isSignedIn() && groupDoc(groupId).adminUid == request.auth.uid;
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == 'admin';
     }
 
     match /groups/{groupId} {
       allow get: if isSignedIn();
       allow list: if false; // ห้ามค้นหา/ไล่ดูกลุ่มทั้งหมด ต้องรู้รหัสกลุ่มเท่านั้น
       allow create: if isSignedIn() && request.resource.data.adminUid == request.auth.uid;
+      // แอดมินคนใดก็ได้ (รวมแอดมินร่วมที่ถูกตั้งภายหลัง) แก้ไข/ลบกลุ่มทิ้งถาวรได้
       allow update, delete: if isAdmin(groupId);
 
       match /members/{uid} {
@@ -31,14 +35,21 @@ service cloud.firestore {
           groupDoc(groupId).adminUid == uid ||
           request.resource.data.joinPasswordHash == groupDoc(groupId).passwordHash
         );
-        allow update: if isSignedIn() && (request.auth.uid == uid || isAdmin(groupId));
+        // แก้ไขข้อมูลตัวเองได้เสมอ แต่ห้ามเปลี่ยน role ตัวเอง (กันตั้งตัวเองเป็นแอดมิน) -
+        // การเปลี่ยน role (ตั้ง/ถอดแอดมินร่วม) ต้องทำโดยแอดมินเท่านั้น
+        allow update: if isSignedIn() && (
+          (request.auth.uid == uid && request.resource.data.role == resource.data.role) ||
+          isAdmin(groupId)
+        );
         allow delete: if isSignedIn() && (request.auth.uid == uid || isAdmin(groupId));
       }
 
       match /messages/{msgId} {
         allow read: if isSignedIn() && isMember(groupId);
         allow create: if isSignedIn() && isMember(groupId) && request.resource.data.senderUid == request.auth.uid;
-        allow update, delete: if false;
+        allow update: if false;
+        // แอดมินลบข้อความได้ (ใช้ตอนลบกลุ่มทิ้งถาวร เพื่อล้างข้อความทั้งหมด)
+        allow delete: if isAdmin(groupId);
       }
     }
 

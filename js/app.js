@@ -15,21 +15,34 @@
   let pendingProfileAvatar = null; // avatar ที่กำลังแก้ไขอยู่ในหน้าต่างโปรไฟล์ (ยังไม่บันทึก)
   let profileEditScope = null; // null = แก้โปรไฟล์เริ่มต้น (ใช้กับทุกกลุ่ม), groupId = แก้เฉพาะกลุ่มนี้กลุ่มเดียว
 
-  // ไอคอนอวตารให้เลือก (พื้นหลังสีต่าง ๆ แทนสีหมวกนิรภัย เช่น หมวกเหลือง/หมวกขาว)
-  const AVATAR_ICONS = [
-    { value: '👷', bg: '#ffd21f' },     // หมวกเหลือง
-    { value: '👷', bg: '#f4f6fb' },     // หมวกขาว
-    { value: '👷‍♀️', bg: '#ffd21f' },   // หมวกเหลือง (หญิง)
-    { value: '👷‍♀️', bg: '#f4f6fb' },   // หมวกขาว (หญิง)
-    { value: '🧑‍🔧', bg: '#8ec9ff' },
-    { value: '🦺', bg: '#ff8c42' },
-    { value: '🧢', bg: '#7c83fd' },
-    { value: '🚧', bg: '#ffd21f' },
-    { value: '😀', bg: '#eef1f8' },
-    { value: '😎', bg: '#eef1f8' },
-    { value: '🤠', bg: '#eef1f8' },
-    { value: '📻', bg: '#eef1f8' }
-  ];
+  // ไอคอนอวตารให้เลือก แบ่งเป็น 2 หมวด: คน / สัตว์ (ไม่ใช้รูปสิ่งของ) หมวดละ ~30 แบบ
+  // หมวกช่างสีเหลือง/ขาว ใช้อีโมจิเดียวกันแต่เปลี่ยนสีพื้นหลังวงกลมแทนสีหมวก
+  const AVATAR_CATEGORIES = {
+    people: [
+      { value: '👷', bg: '#ffd21f' },      // ช่างหมวกเหลือง
+      { value: '👷', bg: '#f4f6fb' },      // ช่างหมวกขาว
+      { value: '👷‍♀️', bg: '#ffd21f' },    // ช่างหมวกเหลือง (หญิง)
+      { value: '👷‍♀️', bg: '#f4f6fb' },    // ช่างหมวกขาว (หญิง)
+      { value: '🧑‍🔧' }, { value: '👨‍🔧' }, { value: '👩‍🔧' },
+      { value: '🧑‍🏭' }, { value: '👨‍🏭' }, { value: '👩‍🏭' },
+      { value: '🧑‍💼' }, { value: '👨‍💼' }, { value: '👩‍💼' },
+      { value: '🧑‍✈️' }, { value: '👮' }, { value: '👮‍♀️' },
+      { value: '🕵️' }, { value: '🧑‍🚒' }, { value: '👨‍🚒' }, { value: '👩‍🚒' },
+      { value: '🧑‍⚕️' }, { value: '👨‍⚕️' }, { value: '👩‍⚕️' },
+      { value: '🧑‍🎓' }, { value: '🧑‍🌾' }, { value: '👨‍🌾' }, { value: '👩‍🌾' },
+      { value: '🥷' }, { value: '🤠' }, { value: '😀' }, { value: '😎' }, { value: '🧑' }
+    ],
+    animals: [
+      { value: '🐶' }, { value: '🐱' }, { value: '🐭' }, { value: '🐹' }, { value: '🐰' },
+      { value: '🦊' }, { value: '🐻' }, { value: '🐼' }, { value: '🐨' }, { value: '🐯' },
+      { value: '🦁' }, { value: '🐮' }, { value: '🐷' }, { value: '🐸' }, { value: '🐵' },
+      { value: '🐔' }, { value: '🐧' }, { value: '🐦' }, { value: '🐤' }, { value: '🦆' },
+      { value: '🦉' }, { value: '🐺' }, { value: '🐗' }, { value: '🐴' }, { value: '🦄' },
+      { value: '🐝' }, { value: '🐛' }, { value: '🦋' }, { value: '🐌' }, { value: '🐞' }
+    ]
+  };
+  const AVATAR_CAT_BG = '#eef1f8';
+  let profileEmojiCategory = 'people';
 
   const el = (id) => document.getElementById(id);
 
@@ -221,6 +234,7 @@
   }
   function sendGroupPing(target) {
     if (!currentGroup) return;
+    playAlertSound(); // ให้ได้ยินเสียงยืนยันที่เครื่องตัวเองด้วยทันทีที่กด ไม่ต้องรอสัญญาณย้อนกลับจากเซิร์ฟเวอร์
     rtdb.ref(`pings/${currentGroup.id}`).push({
       fromUid: Identity.getUid(),
       fromName: Identity.getName(),
@@ -282,10 +296,11 @@
   // เปิดจากปุ่ม 👤 หน้ารายการกลุ่ม = แก้ "โปรไฟล์เริ่มต้น" ใช้เป็นค่าตั้งต้นกับทุกกลุ่ม
   function openProfileModal() {
     profileEditScope = null;
-    el('profile-modal-title').textContent = 'โปรไฟล์ของฉัน';
-    el('profile-modal-sub').textContent = 'ชื่อ/รูปนี้จะใช้เป็นค่าเริ่มต้นกับทุกกลุ่มที่เข้าร่วม';
+    el('profile-modal-title').textContent = I18N.t('profile_title');
+    el('profile-modal-sub').textContent = I18N.t('profile_sub_default');
     el('profile-name-input').value = Identity.getName();
     pendingProfileAvatar = Identity.getAvatar();
+    profileEmojiCategory = guessAvatarCategory(pendingProfileAvatar);
     renderProfileEmojiGrid();
     renderProfileAvatarPreview();
     showModal('modal-profile');
@@ -294,27 +309,42 @@
   function openGroupProfileEdit(m) {
     if (!currentGroup) return;
     profileEditScope = currentGroup.id;
-    el('profile-modal-title').textContent = 'แก้ไขโปรไฟล์ในกลุ่มนี้';
-    el('profile-modal-sub').textContent = `ชื่อ/รูปนี้จะใช้เฉพาะในกลุ่ม "${currentGroup.name}" เท่านั้น`;
+    el('profile-modal-title').textContent = I18N.t('profile_title_group');
+    el('profile-modal-sub').textContent = I18N.t('profile_sub_group', { group: currentGroup.name });
     el('profile-name-input').value = m.name || Identity.getName();
     pendingProfileAvatar = m.avatar || Identity.getAvatar();
+    profileEmojiCategory = guessAvatarCategory(pendingProfileAvatar);
     renderProfileEmojiGrid();
     renderProfileAvatarPreview();
     showModal('modal-profile');
   }
+  function guessAvatarCategory(avatar) {
+    if (avatar && avatar.type === 'emoji' && AVATAR_CATEGORIES.animals.some(ic => ic.value === avatar.value)) return 'animals';
+    return 'people';
+  }
+  document.querySelectorAll('.avatar-cat-tabs .cat-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      profileEmojiCategory = btn.dataset.cat;
+      renderProfileEmojiGrid();
+    });
+  });
   function renderProfileEmojiGrid() {
+    document.querySelectorAll('.avatar-cat-tabs .cat-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.cat === profileEmojiCategory);
+    });
     const box = el('profile-emoji-grid');
     box.innerHTML = '';
-    AVATAR_ICONS.forEach(ic => {
+    AVATAR_CATEGORIES[profileEmojiCategory].forEach(ic => {
+      const bg = ic.bg || AVATAR_CAT_BG;
       const b = document.createElement('button');
       b.type = 'button';
       const selected = pendingProfileAvatar && pendingProfileAvatar.type === 'emoji'
-        && pendingProfileAvatar.value === ic.value && pendingProfileAvatar.bg === ic.bg;
+        && pendingProfileAvatar.value === ic.value && (pendingProfileAvatar.bg || AVATAR_CAT_BG) === bg;
       b.className = 'emoji-choice' + (selected ? ' selected' : '');
-      b.style.background = ic.bg;
+      b.style.background = bg;
       b.textContent = ic.value;
       b.addEventListener('click', () => {
-        pendingProfileAvatar = { type: 'emoji', value: ic.value, bg: ic.bg };
+        pendingProfileAvatar = { type: 'emoji', value: ic.value, bg };
         renderProfileEmojiGrid();
         renderProfileAvatarPreview();
       });
@@ -412,6 +442,10 @@
 
   // ---------- ชื่อผู้ใช้ ----------
   async function init() {
+    I18N.applyStaticTranslations();
+    el('btn-ptt-target').textContent = I18N.t('ptt_target_all');
+    attachVoiceInput('btn-mic-chat', 'chat-input');
+    attachVoiceInput('btn-mic-dm', 'dm-input');
     await Identity.signIn();
     VideoCall.setMyName(Identity.getName());
 
@@ -496,13 +530,39 @@
 
   el('btn-my-name').addEventListener('click', openProfileModal);
 
+  // ---------- เลือกภาษา ----------
+  const LANG_FLAGS = { th: '🇹🇭', en: '🇬🇧', zh: '🇨🇳', km: '🇰🇭', my: '🇲🇲', lo: '🇱🇦' };
+  el('btn-lang').addEventListener('click', () => {
+    openSheet(I18N.t('lang_picker_title'), I18N.LANGS.map(l => ({
+      icon: LANG_FLAGS[l] || '🌐',
+      label: I18N.getLangName(l),
+      selected: I18N.getLang() === l,
+      onClick: () => changeLang(l)
+    })));
+  });
+  function changeLang(l) {
+    I18N.setLang(l);
+    refreshDynamicTexts();
+  }
+  // ข้อความในหน้าจอที่ตั้งค่าด้วย JS (ไม่ใช่ data-i18n ตรง ๆ ใน HTML) ต้องรีเฟรชเองตอนเปลี่ยนภาษา
+  function refreshDynamicTexts() {
+    updateOnlineToggleUI();
+    if (currentGroup) {
+      renderMembers();
+      updateRadioStatus();
+      if (pttTarget === 'all') el('btn-ptt-target').textContent = I18N.t('ptt_target_all');
+    } else {
+      renderGroupsList();
+    }
+  }
+
   // ---------- รายการกลุ่ม ----------
   function renderGroupsList() {
     const list = Groups.getMyGroups();
     const box = el('groups-list');
     box.innerHTML = '';
     if (list.length === 0) {
-      box.innerHTML = '<div class="empty-hint">ยังไม่มีกลุ่ม แตะปุ่ม + ด้านล่างเพื่อสร้างกลุ่มใหม่ หรือเข้าร่วมด้วยรหัสที่ได้รับ</div>';
+      box.innerHTML = `<div class="empty-hint">${escapeHtml(I18N.t('empty_groups_hint'))}</div>`;
       return;
     }
     list.forEach(g => {
@@ -513,7 +573,7 @@
         <div class="avatar">📻</div>
         <div class="info">
           <div class="g-name">${escapeHtml(g.name)}</div>
-          <div class="g-role">${g.role === 'admin' ? 'แอดมิน' : 'สมาชิก'} · รหัส ${g.id}</div>
+          <div class="g-role">${g.role === 'admin' ? I18N.t('role_admin') : I18N.t('role_member')} · ${I18N.t('code_label')} ${g.id}</div>
         </div>
         <span class="g-badge">${renderBadge(unreadCounts[g.id] || 0)}</span>
         <div class="chevron">›</div>`;
@@ -568,8 +628,19 @@
     switchTab('chat');
     updateOnlineToggleUI();
 
-    const infoRes = await Groups.getGroupInfo(g.id).catch(() => null);
-    isAdmin = infoRes && infoRes.adminUid === Identity.getUid();
+    isAdmin = false; // จะอัปเดตให้ถูกต้องทันทีที่รายชื่อสมาชิกโหลดมา (ดูค่า role ของตัวเอง)
+
+    // เผื่อกลุ่มนี้ถูกแอดมินลบทิ้งถาวรไปแล้วโดยที่เครื่องนี้ยังไม่รู้ (ยังค้างอยู่ในรายการกลุ่มของเครื่องนี้)
+    const stillExists = await Groups.getGroupInfo(g.id).catch(() => null);
+    if (!stillExists) {
+      toast(`กลุ่ม "${g.name}" ถูกลบไปแล้ว`, 3200);
+      Groups.removeMyGroup(g.id);
+      unwatchGroupUnread(g.id);
+      currentGroup = null;
+      showScreen('screen-groups');
+      renderGroupsList();
+      return;
+    }
 
     // แชท/สมาชิก ทำงานตลอดเวลาไม่ว่าจะกด "ออนไลน์" หรือไม่ (เหมือนแอปแชททั่วไป อ่านข้อความได้เสมอ)
     Chat.listen(g.id, (msgs, isNewIncoming) => {
@@ -593,6 +664,9 @@
 
     unsubMembers = Groups.listenMembers(g.id, (members) => {
       membersCache = members;
+      // เป็นแอดมินร่วมได้กี่คนก็ได้ - เช็คจาก role ของตัวเองในรายชื่อสมาชิกสด ๆ ทุกครั้งที่มีการเปลี่ยนแปลง
+      const me = members.find(x => x.uid === Identity.getUid());
+      isAdmin = !!me && me.role === 'admin';
       renderMembers();
       members.forEach(m => { if (m.uid !== Identity.getUid()) watchDmUnread(m.uid); });
     });
@@ -635,10 +709,24 @@
       VideoCall.listenForIncoming(g.id, Identity.getUid());
       VideoCall.setUiHandlers({
         onIncoming: handleIncomingCall,
-        onAccepted: () => { el('video-status').textContent = 'เชื่อมต่อแล้ว'; },
-        onEnded: (reason) => { stopRing(); showScreen('screen-room'); toast(reason === 'declined' ? 'อีกฝ่ายปฏิเสธสาย' : 'สายจบแล้ว'); },
-        onRemoteStream: (stream) => playRemoteStream(stream),
-        onLocalStream: (stream) => { el('local-video').srcObject = stream; }
+        // ไม่ขึ้น "เชื่อมต่อแล้ว" ตอนนี้ เพราะเป็นแค่สถานะรับสาย ยังไม่ใช่การยืนยันว่าวิดีโอเชื่อมต่อจริง
+        onAccepted: () => { el('video-status').textContent = 'กำลังเชื่อมต่อวิดีโอ...'; },
+        onEnded: (reason) => {
+          stopRing();
+          showScreen('screen-room');
+          const msg = reason === 'declined' ? 'อีกฝ่ายปฏิเสธสาย' : (reason === 'failed' || reason === 'disconnected') ? 'การเชื่อมต่อวิดีโอขาดหาย (เครือข่ายไม่เสถียร)' : 'สายจบแล้ว';
+          toast(msg, 3200);
+        },
+        onRemoteStream: (stream) => {
+          playRemoteStream(stream);
+          el('video-status').textContent = 'เชื่อมต่อแล้ว'; // ยืนยันจริงเมื่อมีภาพ/เสียงจากอีกฝ่ายเข้ามาแล้วเท่านั้น
+        },
+        onLocalStream: (stream) => { el('local-video').srcObject = stream; },
+        onConnectionFailed: async (state) => {
+          toast('การเชื่อมต่อวิดีโอมีปัญหา (เครือข่ายไม่เสถียร) กำลังวางสาย...', 3200);
+          await VideoCall.hangUp();
+          showScreen('screen-room');
+        }
       });
       toast('🟢 ออนไลน์แล้ว - พร้อมใช้วิทยุ/รับสาย');
     } else {
@@ -651,24 +739,24 @@
       presenceCache = {};
       renderMembers();
       renderTalkingBanner([]);
-      el('room-sub').textContent = 'ออฟไลน์';
-      el('radio-status').textContent = 'กดปุ่มออนไลน์เพื่อเริ่มใช้วิทยุ';
+      el('room-sub').textContent = I18N.t('status_offline');
+      el('radio-status').textContent = I18N.t('radio_waiting');
       toast('⚪ ออฟไลน์แล้ว');
     }
   }
 
   function updateOnlineToggleUI() {
     const btn = el('btn-online-toggle');
-    btn.textContent = isOnline ? '🟢 ออนไลน์' : '🔴 ออฟไลน์';
+    btn.textContent = isOnline ? I18N.t('online_label') : I18N.t('offline_label');
     btn.classList.toggle('is-online', isOnline);
   }
 
   function updateRadioStatus() {
     const onlineCount = Object.keys(presenceCache).length;
-    el('room-sub').textContent = `${onlineCount} คนออนไลน์`;
+    el('room-sub').textContent = `${onlineCount} ${I18N.t('status_online')}`;
     el('radio-status').textContent = onlineCount <= 1
-      ? 'รอเพื่อนร่วมทีมออนไลน์...'
-      : `เชื่อมต่อวิทยุกับ ${Mesh.getPeerCount()} คน`;
+      ? I18N.t('radio_waiting')
+      : I18N.t('radio_connected_count', { n: Mesh.getPeerCount() });
   }
 
   function nameOf(uid) {
@@ -733,18 +821,39 @@
         }
       });
     }
-    items.push({ icon: '🚪', label: 'ออกจากกลุ่ม', danger: true, onClick: leaveCurrentGroup });
+    items.push({ icon: '🚪', label: 'ออกจากกลุ่ม (แค่ตัวเอง)', danger: true, onClick: leaveCurrentGroup });
+    if (isAdmin) {
+      items.push({ icon: '🗑️', label: 'ลบกลุ่มถาวร (ลบให้ทุกคน)', danger: true, onClick: confirmDeleteGroupPermanently });
+    }
     openSheet(currentGroup.name, items);
   });
 
   async function leaveCurrentGroup() {
-    if (!confirm('ออกจากกลุ่มนี้ใช่หรือไม่?')) return;
+    if (!confirm('ออกจากกลุ่มนี้ใช่หรือไม่? (เฉพาะตัวคุณเอง กลุ่มยังอยู่สำหรับคนอื่น)')) return;
     const gid = currentGroup.id;
     await Groups.leaveGroup(gid);
     leaveRoomCleanup();
     unwatchGroupUnread(gid);
     showScreen('screen-groups');
     renderGroupsList();
+  }
+
+  // ลบกลุ่มทิ้งถาวร (แอดมินเท่านั้น) - หายไปสำหรับทุกคนในกลุ่ม กู้คืนไม่ได้
+  async function confirmDeleteGroupPermanently() {
+    const gname = currentGroup.name;
+    if (!confirm(`ลบกลุ่ม "${gname}" ทิ้งถาวรใช่หรือไม่?\nสมาชิก แชท และข้อมูลทั้งหมดจะหายไปสำหรับทุกคน กู้คืนไม่ได้`)) return;
+    const gid = currentGroup.id;
+    toast('กำลังลบกลุ่ม...', 2000);
+    try {
+      await Groups.deleteGroupPermanently(gid);
+      leaveRoomCleanup();
+      unwatchGroupUnread(gid);
+      showScreen('screen-groups');
+      renderGroupsList();
+      toast(`ลบกลุ่ม "${gname}" แล้ว`);
+    } catch (e) {
+      toast('ลบกลุ่มไม่สำเร็จ: ' + e.message, 3200);
+    }
   }
 
   // ---------- แท็บล่าง ----------
@@ -812,6 +921,44 @@
     a.play().catch(() => {});
   }
 
+  // ---------- พูดแล้วพิมพ์อัตโนมัติ (ใช้ในช่องแชทกลุ่ม/ส่วนตัว) ----------
+  // ใช้ Web Speech API ของเบราว์เซอร์ (ต้องออนไลน์ + เบราว์เซอร์รองรับ เช่น Chrome/Safari รุ่นใหม่)
+  function attachVoiceInput(btnId, inputId) {
+    const btn = el(btnId);
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      btn.addEventListener('click', () => toast('เบราว์เซอร์นี้ไม่รองรับการพิมพ์ด้วยเสียง'));
+      return;
+    }
+    let recog = null;
+    let listening = false;
+    function stopListening() {
+      listening = false;
+      btn.classList.remove('listening');
+      if (recog) { try { recog.stop(); } catch (e) {} }
+    }
+    btn.addEventListener('click', () => {
+      if (listening) { stopListening(); return; }
+      recog = new SR();
+      recog.lang = I18N.speechLang();
+      recog.interimResults = false;
+      recog.maxAlternatives = 1;
+      recog.onresult = (e) => {
+        const text = e.results[0][0].transcript;
+        const input = el(inputId);
+        input.value = (input.value ? input.value + ' ' : '') + text;
+        input.focus();
+      };
+      recog.onerror = () => toast('ฟังไม่ชัดเจน ลองพูดใหม่อีกครั้ง');
+      recog.onend = () => { listening = false; btn.classList.remove('listening'); };
+      try {
+        recog.start();
+        listening = true;
+        btn.classList.add('listening');
+      } catch (e) { listening = false; }
+    });
+  }
+
   // ---------- สมาชิก ----------
   function initials(name) {
     return (name || '?').trim().slice(0, 1).toUpperCase();
@@ -829,7 +976,7 @@
       div.innerHTML = `
         <div class="m-avatar">${avatarHtml(m)}<span class="dot ${online ? 'online' : ''}"></span></div>
         <div class="m-name">${escapeHtml(m.name)}${isMe ? ' (คุณ)' : ''}${dmDot}
-          <div class="m-role">${m.role === 'admin' ? 'แอดมิน' : 'สมาชิก'} · ${online ? 'ออนไลน์' : 'ออฟไลน์'}</div>
+          <div class="m-role">${m.role === 'admin' ? I18N.t('role_admin') : I18N.t('role_member')} · ${online ? I18N.t('status_online') : I18N.t('status_offline')}</div>
         </div>
         <div class="chevron">›</div>`;
       div.addEventListener('click', () => isMe ? openGroupProfileEdit(m) : openMemberSheet(m, online));
@@ -841,7 +988,14 @@
     const items = [];
     items.push({ icon: '💬', label: 'ข้อความส่วนตัวถึง ' + m.name, onClick: () => openDm(m) });
     if (online) items.push({ icon: '📹', label: 'วิดีโอคอลหา ' + m.name, onClick: () => startVideoCallTo(m) });
-    if (isAdmin) items.push({ icon: '🚫', label: 'นำออกจากกลุ่ม', danger: true, onClick: () => removeMember(m) });
+    if (isAdmin) {
+      if (m.role === 'admin') {
+        items.push({ icon: '👑', label: 'ถอดสิทธิ์แอดมินร่วม', onClick: () => setMemberRole(m, 'member') });
+      } else {
+        items.push({ icon: '👑', label: 'ตั้งเป็นแอดมินร่วม', onClick: () => setMemberRole(m, 'admin') });
+      }
+      items.push({ icon: '🚫', label: 'นำออกจากกลุ่ม', danger: true, onClick: () => removeMember(m) });
+    }
     openSheet(m.name, items);
   }
 
@@ -851,11 +1005,23 @@
     catch (e) { toast('ทำรายการไม่สำเร็จ'); }
   }
 
+  // แอดมินคนใดก็ได้ตั้ง/ถอดสิทธิ์แอดมินร่วมให้สมาชิกคนอื่นได้ ไม่จำกัดจำนวนคน
+  async function setMemberRole(m, role) {
+    if (role === 'member') {
+      const adminCount = membersCache.filter(x => x.role === 'admin').length;
+      if (adminCount <= 1) { toast('ต้องมีแอดมินเหลืออย่างน้อย 1 คนในกลุ่ม'); return; }
+    }
+    try {
+      await Groups.setMemberRole(currentGroup.id, m.uid, role);
+      toast(role === 'admin' ? `ตั้ง "${m.name}" เป็นแอดมินร่วมแล้ว` : `ถอดสิทธิ์แอดมินของ "${m.name}" แล้ว`);
+    } catch (e) { toast('ทำรายการไม่สำเร็จ'); }
+  }
+
   // ---------- วิทยุ (PTT) ----------
   el('btn-ptt-target').addEventListener('click', () => {
     const items = [{
-      icon: '📢', label: 'ทั้งกลุ่ม', selected: pttTarget === 'all',
-      onClick: () => setPttTarget('all', 'ทั้งกลุ่ม', '📢')
+      icon: '📢', label: I18N.t('label_all_group'), selected: pttTarget === 'all',
+      onClick: () => setPttTarget('all', I18N.t('label_all_group'), '📢')
     }];
     membersCache.forEach(m => {
       if (m.uid === Identity.getUid()) return;
@@ -864,7 +1030,7 @@
         onClick: () => setPttTarget(m.uid, m.name, '🎧')
       });
     });
-    openSheet('วิทยุหาใคร?', items);
+    openSheet(I18N.t('ptt_who_title'), items);
   });
   function setPttTarget(uid, label, icon) {
     pttTarget = uid;

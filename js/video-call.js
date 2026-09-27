@@ -7,7 +7,8 @@ const VideoCall = (() => {
   let ringRef = null, rtcBase = null;
   let listeners = [];
   let ui = {
-    onIncoming: () => {}, onAccepted: () => {}, onEnded: () => {}, onRemoteStream: () => {}, onLocalStream: () => {}
+    onIncoming: () => {}, onAccepted: () => {}, onEnded: () => {}, onRemoteStream: () => {}, onLocalStream: () => {},
+    onConnectionFailed: () => {}
   };
 
   function randomId() { return Math.random().toString(36).slice(2, 10); }
@@ -46,7 +47,24 @@ const VideoCall = (() => {
 
   function buildPc(remoteUid) {
     const p = new RTCPeerConnection(RTC_CONFIG);
-    p.ontrack = (e) => ui.onRemoteStream(e.streams[0]);
+    // เผื่อกรณีเบราว์เซอร์บางตัวไม่ผูก track เข้ากับ e.streams ให้ (แม้จะ addTrack พร้อม stream ไปแล้วก็ตาม)
+    // สร้าง MediaStream สำรองไว้เอง แล้วค่อย ๆ ใส่ track ที่มาถึงเข้าไป เพื่อไม่ให้จอฝั่งรับว่างเปล่า
+    const fallbackStream = new MediaStream();
+    p.ontrack = (e) => {
+      if (e.streams && e.streams[0]) {
+        ui.onRemoteStream(e.streams[0]);
+      } else {
+        fallbackStream.addTrack(e.track);
+        ui.onRemoteStream(fallbackStream);
+      }
+    };
+    // ตรวจจับกรณีเชื่อมต่อ P2P ล้มเหลวจริง (เครือข่ายไม่เสถียร/TURN ใช้ไม่ได้ชั่วคราว)
+    // เพื่อแจ้งผู้ใช้แทนที่จะปล่อยให้ค้างเป็นจอดำเงียบ ๆ โดยไม่รู้สาเหตุ
+    p.onconnectionstatechange = () => {
+      if (['failed', 'disconnected'].includes(p.connectionState)) {
+        ui.onConnectionFailed(p.connectionState);
+      }
+    };
     return p;
   }
 

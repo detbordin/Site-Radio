@@ -12,22 +12,62 @@
 </head>
 <body>
 
+<!--
+  ตรวจจับว่ากำลังเปิดอยู่ใน "เบราว์เซอร์ในแอป" (เช่น LINE, Facebook, Instagram, WeChat, TikTok)
+  ซึ่งมักบล็อกกล้อง/ไมค์/การแจ้งเตือนของ PWA - ถ้าใช่ ให้พยายามเปิดในเบราว์เซอร์จริงแทน
+  Android: เด้งเปิด Chrome ให้อัตโนมัติผ่าน intent link ได้จริง
+  iOS: Apple ไม่อนุญาตให้เว็บบังคับเปิด Safari เอง จึงทำได้แค่ขึ้นแถบแนะนำให้ผู้ใช้กดเปิดเอง
+-->
+<script>
+(function () {
+  try {
+    var ua = navigator.userAgent || '';
+    var isInApp = /Line\/|FBAN|FBAV|Instagram|MicroMessenger|WeChat|TikTok|Twitter/i.test(ua);
+    if (!isInApp) return;
+    var isAndroid = /Android/i.test(ua);
+    var isIOS = /iPhone|iPad|iPod/i.test(ua);
+    if (isAndroid) {
+      var withoutScheme = location.href.replace(/^https?:\/\//, '');
+      location.href = 'intent://' + withoutScheme + '#Intent;scheme=https;package=com.android.chrome;end;';
+    } else if (isIOS) {
+      document.addEventListener('DOMContentLoaded', function () {
+        var bar = document.createElement('div');
+        bar.id = 'inapp-browser-hint';
+        bar.innerHTML =
+          '<span>เปิดหน้านี้ใน Safari เพื่อใช้งานกล้อง/ไมค์ได้เต็มรูปแบบ (แตะปุ่ม ⋯ หรือ 🔗 มุมขวาบน แล้วเลือก "เปิดใน Safari")</span>' +
+          '<button type="button" id="btn-copy-for-safari">คัดลอกลิงก์</button>' +
+          '<button type="button" id="btn-hide-inapp-hint">✕</button>';
+        document.body.prepend(bar);
+        var copyBtn = document.getElementById('btn-copy-for-safari');
+        copyBtn.addEventListener('click', function () {
+          navigator.clipboard.writeText(location.href).then(function () {
+            copyBtn.textContent = 'คัดลอกแล้ว ✓';
+          }).catch(function () {});
+        });
+        document.getElementById('btn-hide-inapp-hint').addEventListener('click', function () { bar.remove(); });
+      });
+    }
+  } catch (e) {}
+})();
+</script>
+
 <!-- หน้าตั้งชื่อ (ครั้งแรก) -->
 <section id="screen-name" class="screen">
   <div class="center-card">
     <div class="brand-mark">📻</div>
-    <h1>วิทยุไซต์งาน</h1>
-    <p class="sub">ตั้งชื่อของคุณเพื่อเริ่มใช้งาน</p>
-    <input id="input-name" type="text" placeholder="ชื่อที่จะให้คนอื่นเห็น เช่น ช่าง A" maxlength="30">
-    <button id="btn-save-name" class="btn-primary">เริ่มใช้งาน</button>
+    <h1 data-i18n="app_title">วิทยุไซต์งาน</h1>
+    <p class="sub" data-i18n="name_sub">ตั้งชื่อของคุณเพื่อเริ่มใช้งาน</p>
+    <input id="input-name" type="text" data-i18n-placeholder="name_placeholder" placeholder="ชื่อที่จะให้คนอื่นเห็น เช่น ช่าง A" maxlength="30">
+    <button id="btn-save-name" class="btn-primary" data-i18n="btn_start">เริ่มใช้งาน</button>
   </div>
 </section>
 
 <!-- หน้ารายการกลุ่ม -->
 <section id="screen-groups" class="screen hidden">
   <header class="topbar">
-    <h2>กลุ่มของฉัน</h2>
-    <button id="btn-my-name" class="icon-btn" title="ชื่อของฉัน">👤</button>
+    <h2 data-i18n="groups_title">กลุ่มของฉัน</h2>
+    <button id="btn-lang" class="icon-btn" title="Language">🌐</button>
+    <button id="btn-my-name" class="icon-btn" data-i18n-title="my_profile_title" title="ชื่อของฉัน">👤</button>
   </header>
   <div id="groups-list" class="groups-list"></div>
   <button id="btn-fab-add" class="fab" title="เพิ่มกลุ่ม">+</button>
@@ -54,7 +94,8 @@
       <button id="btn-attach" class="icon-btn">📷</button>
       <input id="file-camera" type="file" accept="image/*" capture="environment" class="hidden">
       <input id="file-gallery" type="file" accept="image/*" class="hidden">
-      <input id="chat-input" type="text" placeholder="พิมพ์ข้อความ...">
+      <input id="chat-input" type="text" data-i18n-placeholder="chat_placeholder" placeholder="พิมพ์ข้อความ...">
+      <button id="btn-mic-chat" class="icon-btn" data-i18n-title="mic_title" title="พูดแล้วพิมพ์อัตโนมัติ">🎙️</button>
       <button id="btn-send" class="icon-btn send">➤</button>
     </div>
   </div>
@@ -64,19 +105,19 @@
   </div>
 
   <div id="tab-radio" class="tab-content radio-tab">
-    <button id="btn-ping-group" class="alert-btn">🔔 กดแจ้งเตือนทั้งกลุ่ม (ทุกเครื่องจะได้ยินเสียง)</button>
+    <button id="btn-ping-group" class="alert-btn" data-i18n="ping_group_btn">🔔 กดแจ้งเตือนทั้งกลุ่ม (ทุกเครื่องจะได้ยินเสียง)</button>
     <button id="btn-ptt-target" class="target-chip">📢 ทั้งกลุ่ม</button>
     <button id="btn-ptt" class="ptt-button">
       <span class="ptt-icon">🎙️</span>
-      <span class="ptt-label">กดค้างเพื่อพูด</span>
+      <span class="ptt-label" data-i18n="ptt_label">กดค้างเพื่อพูด</span>
     </button>
-    <div id="radio-status" class="radio-status">กำลังเชื่อมต่อวิทยุ...</div>
+    <div id="radio-status" class="radio-status" data-i18n="radio_connecting">กำลังเชื่อมต่อวิทยุ...</div>
   </div>
 
   <nav class="bottom-nav">
-    <button class="nav-btn active" data-tab="chat"><span class="nav-icon">💬</span><span>แชท</span><span class="n-badge"></span></button>
-    <button class="nav-btn" data-tab="members"><span class="nav-icon">👥</span><span>สมาชิก</span></button>
-    <button class="nav-btn" data-tab="radio"><span class="nav-icon">📻</span><span>วิทยุ</span></button>
+    <button class="nav-btn active" data-tab="chat"><span class="nav-icon">💬</span><span data-i18n="chat_tab">แชท</span><span class="n-badge"></span></button>
+    <button class="nav-btn" data-tab="members"><span class="nav-icon">👥</span><span data-i18n="members_tab">สมาชิก</span></button>
+    <button class="nav-btn" data-tab="radio"><span class="nav-icon">📻</span><span data-i18n="radio_tab">วิทยุ</span></button>
   </nav>
 </section>
 
@@ -85,13 +126,14 @@
   <header class="topbar">
     <button id="btn-back-dm" class="icon-btn">←</button>
     <div class="room-title">
-      <div id="dm-peer-name">ข้อความส่วนตัว</div>
+      <div id="dm-peer-name" data-i18n="dm_default_title">ข้อความส่วนตัว</div>
     </div>
-    <button id="btn-ping-dm" class="icon-btn" title="เรียกเตือน">🔔</button>
+    <button id="btn-ping-dm" class="icon-btn" data-i18n-title="ping_dm_title" title="เรียกเตือน">🔔</button>
   </header>
   <div id="dm-messages" class="chat-messages"></div>
   <div class="chat-input-row">
-    <input id="dm-input" type="text" placeholder="พิมพ์ข้อความส่วนตัว...">
+    <input id="dm-input" type="text" data-i18n-placeholder="dm_placeholder" placeholder="พิมพ์ข้อความส่วนตัว...">
+    <button id="btn-mic-dm" class="icon-btn" data-i18n-title="mic_title" title="พูดแล้วพิมพ์อัตโนมัติ">🎙️</button>
     <button id="btn-dm-send" class="icon-btn send">➤</button>
   </div>
 </section>
@@ -108,12 +150,12 @@
 <!-- ป๊อปอัพ: สร้างกลุ่ม -->
 <div id="modal-create" class="modal hidden">
   <div class="modal-card">
-    <h3>สร้างกลุ่มใหม่</h3>
-    <input id="create-group-name" type="text" placeholder="ชื่อกลุ่ม เช่น ไซต์งานพระราม 9">
-    <input id="create-group-pass" type="text" placeholder="ตั้งรหัสผ่านกลุ่ม">
+    <h3 data-i18n="modal_create_title">สร้างกลุ่มใหม่</h3>
+    <input id="create-group-name" type="text" data-i18n-placeholder="create_name_placeholder" placeholder="ชื่อกลุ่ม เช่น ไซต์งานพระราม 9">
+    <input id="create-group-pass" type="text" data-i18n-placeholder="create_pass_placeholder" placeholder="ตั้งรหัสผ่านกลุ่ม">
     <div class="modal-actions">
-      <button class="btn-ghost modal-close">ยกเลิก</button>
-      <button id="btn-do-create" class="btn-primary">สร้างกลุ่ม</button>
+      <button class="btn-ghost modal-close" data-i18n="btn_cancel">ยกเลิก</button>
+      <button id="btn-do-create" class="btn-primary" data-i18n="btn_create">สร้างกลุ่ม</button>
     </div>
   </div>
 </div>
@@ -121,16 +163,16 @@
 <!-- ป๊อปอัพ: QR เชิญเข้าร่วม -->
 <div id="modal-qr" class="modal hidden">
   <div class="modal-card qr-card">
-    <h3>เชิญเข้าร่วมกลุ่ม</h3>
-    <p class="sub">ให้เพื่อนร่วมทีมเปิดกล้อง/สแกน QR นี้ เพื่อเข้ากลุ่มได้ทันที ไม่ต้องพิมพ์รหัส</p>
+    <h3 data-i18n="modal_qr_title">เชิญเข้าร่วมกลุ่ม</h3>
+    <p class="sub" data-i18n="qr_sub">ให้เพื่อนร่วมทีมเปิดกล้อง/สแกน QR นี้ เพื่อเข้ากลุ่มได้ทันที ไม่ต้องพิมพ์รหัส</p>
     <div id="qr-canvas-box" class="qr-box"></div>
     <div class="qr-info">
       <div>รหัสกลุ่ม: <b id="qr-group-code"></b></div>
       <div>รหัสผ่าน: <b id="qr-group-pass"></b></div>
     </div>
     <div class="modal-actions">
-      <button class="btn-ghost modal-close">ปิด</button>
-      <button id="btn-copy-join-link" class="btn-primary">คัดลอกลิงก์เชิญ</button>
+      <button class="btn-ghost modal-close" data-i18n="btn_close">ปิด</button>
+      <button id="btn-copy-join-link" class="btn-primary" data-i18n="btn_copy_link">คัดลอกลิงก์เชิญ</button>
     </div>
   </div>
 </div>
@@ -138,12 +180,12 @@
 <!-- ป๊อปอัพ: เข้าร่วมกลุ่ม -->
 <div id="modal-join" class="modal hidden">
   <div class="modal-card">
-    <h3>เข้าร่วมกลุ่ม</h3>
-    <input id="join-group-code" type="text" placeholder="รหัสกลุ่ม (6 หลัก)" maxlength="6" style="text-transform:uppercase">
-    <input id="join-group-pass" type="text" placeholder="รหัสผ่านกลุ่ม">
+    <h3 data-i18n="modal_join_title">เข้าร่วมกลุ่ม</h3>
+    <input id="join-group-code" type="text" data-i18n-placeholder="join_code_placeholder" placeholder="รหัสกลุ่ม (6 หลัก)" maxlength="6" style="text-transform:uppercase">
+    <input id="join-group-pass" type="text" data-i18n-placeholder="join_pass_placeholder" placeholder="รหัสผ่านกลุ่ม">
     <div class="modal-actions">
-      <button class="btn-ghost modal-close">ยกเลิก</button>
-      <button id="btn-do-join" class="btn-primary">เข้าร่วม</button>
+      <button class="btn-ghost modal-close" data-i18n="btn_cancel">ยกเลิก</button>
+      <button id="btn-do-join" class="btn-primary" data-i18n="btn_join">เข้าร่วม</button>
     </div>
   </div>
 </div>
@@ -154,14 +196,18 @@
     <h3 id="profile-modal-title">โปรไฟล์ของฉัน</h3>
     <p id="profile-modal-sub" class="sub" style="margin-top:-6px;"></p>
     <div id="profile-avatar-preview" class="profile-avatar-preview"></div>
-    <input id="profile-name-input" type="text" placeholder="ชื่อที่จะให้คนอื่นเห็น" maxlength="30">
+    <input id="profile-name-input" type="text" data-i18n-placeholder="profile_name_placeholder" placeholder="ชื่อที่จะให้คนอื่นเห็น" maxlength="30">
     <input id="profile-photo-input" type="file" accept="image/*" class="hidden">
-    <button id="btn-pick-photo" class="btn-secondary" type="button">📷 อัปโหลดรูปตัวเอง</button>
-    <div class="sub" style="margin:14px 0 6px;">หรือเลือกไอคอนการ์ตูน</div>
+    <button id="btn-pick-photo" class="btn-secondary" type="button" data-i18n="btn_pick_photo">📷 อัปโหลดรูปตัวเอง</button>
+    <div class="sub" style="margin:14px 0 6px;" data-i18n="profile_icon_hint">หรือเลือกไอคอนคน/สัตว์น่ารัก</div>
+    <div class="avatar-cat-tabs">
+      <button type="button" class="cat-tab active" data-cat="people" data-i18n="cat_people">🧑 คน</button>
+      <button type="button" class="cat-tab" data-cat="animals" data-i18n="cat_animals">🐾 สัตว์</button>
+    </div>
     <div id="profile-emoji-grid" class="emoji-grid"></div>
     <div class="modal-actions">
-      <button class="btn-ghost modal-close">ยกเลิก</button>
-      <button id="btn-save-profile" class="btn-primary">บันทึก</button>
+      <button class="btn-ghost modal-close" data-i18n="btn_cancel">ยกเลิก</button>
+      <button id="btn-save-profile" class="btn-primary" data-i18n="btn_save">บันทึก</button>
     </div>
   </div>
 </div>
@@ -171,10 +217,10 @@
   <div class="modal-card call-card">
     <div class="call-avatar">📹</div>
     <h3 id="incoming-call-name">สายเรียกเข้า...</h3>
-    <p class="sub">วิดีโอคอล</p>
+    <p class="sub" data-i18n="incoming_sub">วิดีโอคอล</p>
     <div class="modal-actions">
-      <button id="btn-decline-call" class="btn-danger">ปฏิเสธ</button>
-      <button id="btn-accept-call" class="btn-primary">รับสาย</button>
+      <button id="btn-decline-call" class="btn-danger" data-i18n="btn_decline">ปฏิเสธ</button>
+      <button id="btn-accept-call" class="btn-primary" data-i18n="btn_accept">รับสาย</button>
     </div>
   </div>
 </div>
@@ -183,8 +229,8 @@
 <section id="screen-video" class="screen hidden">
   <video id="remote-video" autoplay playsinline></video>
   <video id="local-video" autoplay playsinline muted></video>
-  <div id="video-status" class="video-status">กำลังเชื่อมต่อ...</div>
-  <button id="btn-unmute-remote" class="unmute-hint hidden">🔊 แตะเพื่อเปิดเสียง</button>
+  <div id="video-status" class="video-status" data-i18n="video_connecting">กำลังเชื่อมต่อ...</div>
+  <button id="btn-unmute-remote" class="unmute-hint hidden" data-i18n="unmute_hint">🔊 แตะเพื่อเปิดเสียง</button>
   <div class="video-controls">
     <button id="btn-toggle-mic" class="icon-btn big">🎤</button>
     <button id="btn-toggle-cam" class="icon-btn big">📷</button>
@@ -221,6 +267,7 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
 <script src="js/firebase-config.js"></script>
+<script src="js/i18n.js"></script>
 <script src="js/identity.js"></script>
 <script src="js/groups.js"></script>
 <script src="js/presence.js"></script>

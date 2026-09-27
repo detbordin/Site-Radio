@@ -144,6 +144,7 @@ input::placeholder { color: var(--muted); }
 }
 .chat-input-row input { margin: 0; flex: 1; }
 .icon-btn.send { background: linear-gradient(135deg, var(--accent), #e8542a); color: #fff; }
+.icon-btn.listening { background: var(--danger); color: #fff; animation: pulse 1s infinite; }
 
 /* ---------- สมาชิก ---------- */
 .members-list { flex: 1; overflow-y: auto; padding: 14px; padding-bottom: 24px; }
@@ -336,15 +337,36 @@ input::placeholder { color: var(--muted); }
   background: linear-gradient(145deg, var(--card-2), var(--bg-elev));
   display: flex; align-items: center; justify-content: center; font-size: 34px; font-weight: 700; color: var(--muted);
 }
+.avatar-cat-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
+.avatar-cat-tabs .cat-tab {
+  flex: 1; background: var(--card); border: 1px solid var(--border); color: var(--muted);
+  padding: 9px 0; border-radius: 12px; font-size: 13.5px; font-weight: 700;
+}
+.avatar-cat-tabs .cat-tab.active { color: var(--accent); border-color: var(--accent); background: rgba(255,122,69,0.12); }
+
 .emoji-grid {
   display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 4px;
+  max-height: 260px; overflow-y: auto; padding-right: 2px;
 }
 .emoji-choice {
   background: var(--card); border: 1px solid var(--border); border-radius: 12px;
   font-size: 20px; padding: 8px 0; line-height: 1;
 }
-.emoji-choice.selected { border-color: var(--accent); background: rgba(255,122,69,0.15); }
+.emoji-choice.selected { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
 .emoji-choice:active { transform: scale(0.94); }
+
+/* ---------- แถบแนะนำให้เปิดใน Safari/Chrome จริง (ตอนเปิดจากเบราว์เซอร์ในแอปอื่น) ---------- */
+#inapp-browser-hint {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  background: var(--accent); color: #1a0d05; font-size: 12.5px; font-weight: 600;
+  padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top));
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+#inapp-browser-hint span { flex: 1; min-width: 160px; line-height: 1.4; }
+#inapp-browser-hint button {
+  background: rgba(0,0,0,0.15); border: none; color: inherit; font-weight: 700;
+  padding: 6px 10px; border-radius: 10px; font-size: 12px; flex-shrink: 0;
+}
 
 .toast {
   position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);

@@ -121,8 +121,44 @@ const Groups = (() => {
     removeMyGroup(groupId);
   }
 
+  // ตั้ง/ถอดสิทธิ์แอดมินร่วมให้สมาชิกคนใดก็ได้ (ทำได้กี่คนก็ได้ ไม่จำกัดแค่คนที่สร้างกลุ่ม)
+  async function setMemberRole(groupId, uid, role) {
+    await db.collection('groups').doc(groupId).collection('members').doc(uid).update({ role });
+  }
+
+  // ลบกลุ่มทิ้งถาวร (สำหรับแอดมินเท่านั้น) - ลบสมาชิกทั้งหมด, ข้อความทั้งหมด, ตัวกลุ่มเอง,
+  // และล้างข้อมูลที่เกี่ยวข้องใน Realtime Database (presence/pings/rtc/calls) ให้หมด กู้คืนไม่ได้
+  async function deleteGroupPermanently(groupId) {
+    const membersSnap = await db.collection('groups').doc(groupId).collection('members').get();
+    if (!membersSnap.empty) {
+      const batch = db.batch();
+      membersSnap.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
+
+    let msgsSnap = await db.collection('groups').doc(groupId).collection('messages').limit(400).get();
+    while (!msgsSnap.empty) {
+      const batch = db.batch();
+      msgsSnap.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      msgsSnap = await db.collection('groups').doc(groupId).collection('messages').limit(400).get();
+    }
+
+    await db.collection('groups').doc(groupId).delete();
+
+    await Promise.all([
+      rtdb.ref(`presence/${groupId}`).remove().catch(() => {}),
+      rtdb.ref(`pings/${groupId}`).remove().catch(() => {}),
+      rtdb.ref(`rtc/${groupId}`).remove().catch(() => {}),
+      rtdb.ref(`calls/${groupId}`).remove().catch(() => {})
+    ]);
+
+    removeMyGroup(groupId);
+  }
+
   return {
     createGroup, joinGroup, getGroupInfo, listenMembers, updateMyProfile,
-    removeMember, leaveGroup, getMyGroups, saveMyGroup, removeMyGroup, getGroupPassword
+    removeMember, leaveGroup, setMemberRole, deleteGroupPermanently,
+    getMyGroups, saveMyGroup, removeMyGroup, getGroupPassword
   };
 })();
