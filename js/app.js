@@ -1038,13 +1038,31 @@
   }
 
   const pttBtn = el('btn-ptt');
+  const pttLockBtn = el('btn-ptt-lock');
+  let pttLocked = false;       // โหมดล็อคค้างพูด (ไม่ต้องกดนิ้วแช่)
+  let pttLockedTalking = false; // ตอนนี้กำลังพูดค้างอยู่เพราะล็อค (ยังไม่ได้ปล่อยนิ้ว)
+
   function pttStart(e) {
     e.preventDefault();
+    if (pttLocked) {
+      // โหมดล็อค: แตะครั้งแรกเริ่มพูดค้างไว้เลย, แตะซ้ำเพื่อหยุดพูด
+      if (pttLockedTalking) {
+        pttBtn.classList.remove('active');
+        Mesh.pttUp();
+        pttLockedTalking = false;
+      } else {
+        pttBtn.classList.add('active');
+        Mesh.pttDown(pttTarget);
+        pttLockedTalking = true;
+      }
+      return;
+    }
     pttBtn.classList.add('active');
     Mesh.pttDown(pttTarget);
   }
   function pttEnd(e) {
     e.preventDefault();
+    if (pttLocked) return; // โหมดล็อค: ปล่อยนิ้วไม่ต้องหยุดพูด
     pttBtn.classList.remove('active');
     Mesh.pttUp();
   }
@@ -1054,6 +1072,20 @@
   pttBtn.addEventListener('mouseleave', pttEnd);
   pttBtn.addEventListener('touchend', pttEnd);
   pttBtn.addEventListener('touchcancel', pttEnd);
+
+  pttLockBtn.addEventListener('click', () => {
+    pttLocked = !pttLocked;
+    pttLockBtn.classList.toggle('active', pttLocked);
+    pttLockBtn.textContent = pttLocked ? '🔒' : '🔓';
+    pttBtn.querySelector('.ptt-label').textContent = pttLocked ? I18N.t('ptt_label_locked') : I18N.t('ptt_label');
+    if (!pttLocked && pttLockedTalking) {
+      // ปิดล็อคระหว่างกำลังพูดค้างอยู่ -> หยุดพูดทันที
+      pttBtn.classList.remove('active');
+      Mesh.pttUp();
+      pttLockedTalking = false;
+    }
+    toast(pttLocked ? 'ล็อคไมค์แล้ว - แตะปุ่มวิทยุอีกครั้งเพื่อหยุดพูด' : 'ปลดล็อคแล้ว - กลับมากดค้างเพื่อพูดตามปกติ');
+  });
 
   // ---------- วิดีโอคอล ----------
   let pendingIncoming = null;

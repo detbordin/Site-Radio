@@ -30,7 +30,8 @@ const I18N = (() => {
       btn_save: 'บันทึก', lang_picker_title: 'เลือกภาษา', online_label: '🟢 ออนไลน์', offline_label: '🔴 ออฟไลน์',
       role_admin: 'แอดมิน', role_member: 'สมาชิก', status_online: 'ออนไลน์', status_offline: 'ออฟไลน์',
       empty_groups_hint: 'ยังไม่มีกลุ่ม แตะปุ่ม + ด้านล่างเพื่อสร้างกลุ่มใหม่ หรือเข้าร่วมด้วยรหัสที่ได้รับ',
-      ptt_target_all: '📢 ทั้งกลุ่ม', code_label: 'รหัส', label_all_group: 'ทั้งกลุ่ม', ptt_who_title: 'วิทยุหาใคร?', radio_waiting: 'รอเพื่อนร่วมทีมออนไลน์...', radio_connected_count: 'เชื่อมต่อวิทยุกับ {n} คน'
+      ptt_target_all: '📢 ทั้งกลุ่ม', code_label: 'รหัส', label_all_group: 'ทั้งกลุ่ม', ptt_who_title: 'วิทยุหาใคร?', radio_waiting: 'รอเพื่อนร่วมทีมออนไลน์...', radio_connected_count: 'เชื่อมต่อวิทยุกับ {n} คน',
+      ptt_lock_title: 'ล็อคค้างพูด (ไม่ต้องกดนิ้วแช่)', ptt_label_locked: 'แตะเพื่อพูด/หยุดพูด (ล็อคอยู่)'
     },
     en: {
       app_title: 'Site Radio', name_sub: 'Set your name to get started',
@@ -56,7 +57,8 @@ const I18N = (() => {
       btn_save: 'Save', lang_picker_title: 'Choose language', online_label: '🟢 Online', offline_label: '🔴 Offline',
       role_admin: 'Admin', role_member: 'Member', status_online: 'Online', status_offline: 'Offline',
       empty_groups_hint: 'No groups yet. Tap + below to create one, or join with a code.',
-      ptt_target_all: '📢 Whole group', code_label: 'Code', label_all_group: 'Whole group', ptt_who_title: 'Talk to whom?', radio_waiting: 'Waiting for teammates to come online...', radio_connected_count: 'Connected to {n} people'
+      ptt_target_all: '📢 Whole group', code_label: 'Code', label_all_group: 'Whole group', ptt_who_title: 'Talk to whom?', radio_waiting: 'Waiting for teammates to come online...', radio_connected_count: 'Connected to {n} people',
+      ptt_lock_title: 'Lock to keep talking (no need to hold your finger down)', ptt_label_locked: 'Tap to talk / stop (locked)'
     },
     zh: {
       app_title: '工地对讲机', name_sub: '设置您的名字以开始使用',
@@ -82,7 +84,8 @@ const I18N = (() => {
       btn_save: '保存', lang_picker_title: '选择语言', online_label: '🟢 在线', offline_label: '🔴 离线',
       role_admin: '管理员', role_member: '成员', status_online: '在线', status_offline: '离线',
       empty_groups_hint: '还没有群组。点击下方 + 创建新群组，或使用代码加入。',
-      ptt_target_all: '📢 全群', code_label: '代码', label_all_group: '全群', ptt_who_title: '对讲给谁？', radio_waiting: '正在等待队友上线...', radio_connected_count: '已连接 {n} 人'
+      ptt_target_all: '📢 全群', code_label: '代码', label_all_group: '全群', ptt_who_title: '对讲给谁？', radio_waiting: '正在等待队友上线...', radio_connected_count: '已连接 {n} 人',
+      ptt_lock_title: '锁定持续通话（无需一直按住）', ptt_label_locked: '点击开始/停止说话（已锁定）'
     },
     km: {
       app_title: 'វិទ្យុការដ្ឋាន', name_sub: 'កំណត់ឈ្មោះរបស់អ្នកដើម្បីចាប់ផ្តើម',
@@ -108,7 +111,8 @@ const I18N = (() => {
       btn_save: 'រក្សាទុក', lang_picker_title: 'ជ្រើសរើសភាសា', online_label: '🟢 អនឡាញ', offline_label: '🔴 គ្មានអនឡាញ',
       role_admin: 'អ្នកគ្រប់គ្រង', role_member: 'សមាជិក', status_online: 'អនឡាញ', status_offline: 'គ្មានអនឡាញ',
       empty_groups_hint: 'មិនទាន់មានក្រុមទេ។ ចុចប៊ូតុង + ខាងក្រោមដើម្បីបង្កើតក្រុមថ្មី ឬចូលរួមដោយប្រើលេខកូដ។',
-      ptt_target_all: '📢 ក្រុមទាំងអស់', code_label: 'កូដ', label_all_group: 'ក្រុមទាំងអស់', ptt_who_title: 'និយាយទៅកាន់អ្នកណា?', radio_waiting: 'កំពុងរង់ចាំសមាជិកក្រុមចូលអនឡាញ...', radio_connected_count: 'បានភ្ជាប់ជាមួយ {n} នាក់'
+      ptt_target_all: '📢 ក្រុមទាំងអស់', code_label: 'កូដ', label_all_group: 'ក្រុមទាំងអស់', ptt_who_title: 'និយាយទៅកាន់អ្នកណា?', radio_waiting: 'កំពុងរង់ចាំសមាជិកក្រុមចូលអនឡាញ...', radio_connected_count: 'បានភ្ជាប់ជាមួយ {n} នាក់',
+      ptt_lock_title: 'ចាក់សោដើម្បីនិយាយបន្ត (មិនចាំបាច់ចុចឱ្យជាប់)', ptt_label_locked: 'ចុចដើម្បីនិយាយ/ឈប់ (កំពុងចាក់សោ)'
     },
     my: {
       app_title: 'ဆိုက်ရေဒီယို', name_sub: 'အသုံးပြုရန် သင့်အမည်ကို သတ်မှတ်ပါ',
@@ -134,7 +138,8 @@ const I18N = (() => {
       btn_save: 'သိမ်းမည်', lang_picker_title: 'ဘာသာစကားရွေးပါ', online_label: '🟢 အွန်လိုင်း', offline_label: '🔴 အော့ဖ်လိုင်း',
       role_admin: 'အက်ဒမင်', role_member: 'အဖွဲ့ဝင်', status_online: 'အွန်လိုင်း', status_offline: 'အော့ဖ်လိုင်း',
       empty_groups_hint: 'အုပ်စုမရှိသေးပါ။ အောက်ပါ + ကိုနှိပ်ပြီး အုပ်စုအသစ်ဖန်တီးပါ (သို့) ကုဒ်နှင့် ဝင်ရောက်ပါ။',
-      ptt_target_all: '📢 အုပ်စုတစ်ခုလုံး', code_label: 'ကုဒ်', label_all_group: 'အုပ်စုတစ်ခုလုံး', ptt_who_title: 'ဘယ်သူ့ကိုပြောမလဲ?', radio_waiting: 'အဖွဲ့ဝင်များ အွန်လိုင်းလာရန် စောင့်နေသည်...', radio_connected_count: 'လူ {n} ဦးနှင့် ချိတ်ဆက်ထားသည်'
+      ptt_target_all: '📢 အုပ်စုတစ်ခုလုံး', code_label: 'ကုဒ်', label_all_group: 'အုပ်စုတစ်ခုလုံး', ptt_who_title: 'ဘယ်သူ့ကိုပြောမလဲ?', radio_waiting: 'အဖွဲ့ဝင်များ အွန်လိုင်းလာရန် စောင့်နေသည်...', radio_connected_count: 'လူ {n} ဦးနှင့် ချိတ်ဆက်ထားသည်',
+      ptt_lock_title: 'ဆက်ပြောရန် လော့ခ်ချရန် (လက်ချောင်းဖိထားစရာမလို)', ptt_label_locked: 'ပြော/ရပ်ရန် နှိပ်ပါ (လော့ခ်ချထားသည်)'
     },
     lo: {
       app_title: 'ວິທະຍຸໄຊງານ', name_sub: 'ຕັ້ງຊື່ຂອງທ່ານເພື່ອເລີ່ມໃຊ້ງານ',
@@ -160,7 +165,8 @@ const I18N = (() => {
       btn_save: 'ບັນທຶກ', lang_picker_title: 'ເລືອກພາສາ', online_label: '🟢 ອອນລາຍ', offline_label: '🔴 ອອບລາຍ',
       role_admin: 'ແອັດມິນ', role_member: 'ສະມາຊິກ', status_online: 'ອອນລາຍ', status_offline: 'ອອບລາຍ',
       empty_groups_hint: 'ຍັງບໍ່ມີກຸ່ມ. ກົດປຸ່ມ + ດ້ານລຸ່ມເພື່ອສ້າງກຸ່ມໃໝ່ ຫຼືເຂົ້າຮ່ວມດ້ວຍລະຫັດ.',
-      ptt_target_all: '📢 ທັງກຸ່ມ', code_label: 'ລະຫັດ', label_all_group: 'ທັງກຸ່ມ', ptt_who_title: 'ວິທະຍຸຫາໃຜ?', radio_waiting: 'ກຳລັງລໍຖ້າໝູ່ຮ່ວມທີມອອນລາຍ...', radio_connected_count: 'ເຊື່ອມຕໍ່ກັບ {n} ຄົນແລ້ວ'
+      ptt_target_all: '📢 ທັງກຸ່ມ', code_label: 'ລະຫັດ', label_all_group: 'ທັງກຸ່ມ', ptt_who_title: 'ວິທະຍຸຫາໃຜ?', radio_waiting: 'ກຳລັງລໍຖ້າໝູ່ຮ່ວມທີມອອນລາຍ...', radio_connected_count: 'ເຊື່ອມຕໍ່ກັບ {n} ຄົນແລ້ວ',
+      ptt_lock_title: 'ລັອກເພື່ອເວົ້າຕໍ່ (ບໍ່ຕ້ອງກົດຄ້າງໄວ້)', ptt_label_locked: 'ແຕະເພື່ອເວົ້າ/ຢຸດ (ລັອກຢູ່)'
     }
   };
 
