@@ -151,7 +151,8 @@
 <!-- ป๊อปอัพ: แก้ไขโปรไฟล์ (ชื่อ + รูป/ไอคอน) -->
 <div id="modal-profile" class="modal hidden">
   <div class="modal-card profile-card">
-    <h3>โปรไฟล์ของฉัน</h3>
+    <h3 id="profile-modal-title">โปรไฟล์ของฉัน</h3>
+    <p id="profile-modal-sub" class="sub" style="margin-top:-6px;"></p>
     <div id="profile-avatar-preview" class="profile-avatar-preview"></div>
     <input id="profile-name-input" type="text" placeholder="ชื่อที่จะให้คนอื่นเห็น" maxlength="30">
     <input id="profile-photo-input" type="file" accept="image/*" class="hidden">
@@ -183,7 +184,10 @@
   <video id="remote-video" autoplay playsinline></video>
   <video id="local-video" autoplay playsinline muted></video>
   <div id="video-status" class="video-status">กำลังเชื่อมต่อ...</div>
+  <button id="btn-unmute-remote" class="unmute-hint hidden">🔊 แตะเพื่อเปิดเสียง</button>
   <div class="video-controls">
+    <button id="btn-toggle-mic" class="icon-btn big">🎤</button>
+    <button id="btn-toggle-cam" class="icon-btn big">📷</button>
     <button id="btn-switch-cam" class="icon-btn big">🔄</button>
     <button id="btn-hangup" class="icon-btn big danger">📞</button>
   </div>
@@ -198,6 +202,11 @@
 
 <!-- เสียงแจ้งเตือน/เรียก (ปุ่มกดแจ้งเตือน) -->
 <audio id="alert-sound" preload="auto">
+  <source src="icons/notify.mp3" type="audio/mpeg">
+</audio>
+
+<!-- เสียงเรียกเข้าตอนมีวิดีโอคอล (ดังวนจนกว่าจะรับสาย/ปฏิเสธ) -->
+<audio id="ring-sound" preload="auto">
   <source src="icons/notify.mp3" type="audio/mpeg">
 </audio>
 

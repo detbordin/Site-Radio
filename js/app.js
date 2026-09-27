@@ -13,8 +13,23 @@
   let currentDmPeer = null; // { uid, name } ที่กำลังแชทส่วนตัวด้วยอยู่
   let wakeLock = null;
   let pendingProfileAvatar = null; // avatar ที่กำลังแก้ไขอยู่ในหน้าต่างโปรไฟล์ (ยังไม่บันทึก)
+  let profileEditScope = null; // null = แก้โปรไฟล์เริ่มต้น (ใช้กับทุกกลุ่ม), groupId = แก้เฉพาะกลุ่มนี้กลุ่มเดียว
 
-  const AVATAR_EMOJIS = ['👷','👷‍♀️','🧑‍🔧','👨‍🔧','👩‍🔧','🦺','🧢','😀','😎','🤠','👤','📻'];
+  // ไอคอนอวตารให้เลือก (พื้นหลังสีต่าง ๆ แทนสีหมวกนิรภัย เช่น หมวกเหลือง/หมวกขาว)
+  const AVATAR_ICONS = [
+    { value: '👷', bg: '#ffd21f' },     // หมวกเหลือง
+    { value: '👷', bg: '#f4f6fb' },     // หมวกขาว
+    { value: '👷‍♀️', bg: '#ffd21f' },   // หมวกเหลือง (หญิง)
+    { value: '👷‍♀️', bg: '#f4f6fb' },   // หมวกขาว (หญิง)
+    { value: '🧑‍🔧', bg: '#8ec9ff' },
+    { value: '🦺', bg: '#ff8c42' },
+    { value: '🧢', bg: '#7c83fd' },
+    { value: '🚧', bg: '#ffd21f' },
+    { value: '😀', bg: '#eef1f8' },
+    { value: '😎', bg: '#eef1f8' },
+    { value: '🤠', bg: '#eef1f8' },
+    { value: '📻', bg: '#eef1f8' }
+  ];
 
   const el = (id) => document.getElementById(id);
 
@@ -233,7 +248,10 @@
   function avatarHtml(person) {
     const av = person && person.avatar;
     if (av && av.type === 'photo' && av.dataUrl) return `<img class="avatar-img" src="${av.dataUrl}" alt="">`;
-    if (av && av.type === 'emoji' && av.value) return `<span class="avatar-emoji">${av.value}</span>`;
+    if (av && av.type === 'emoji' && av.value) {
+      const style = av.bg ? ` style="background:${av.bg}"` : '';
+      return `<span class="avatar-emoji"${style}>${av.value}</span>`;
+    }
     return initials(person && person.name);
   }
 
@@ -261,9 +279,25 @@
   }
 
   // ---------- ป๊อปอัพแก้ไขโปรไฟล์ (ชื่อ + รูป/ไอคอน) ----------
+  // เปิดจากปุ่ม 👤 หน้ารายการกลุ่ม = แก้ "โปรไฟล์เริ่มต้น" ใช้เป็นค่าตั้งต้นกับทุกกลุ่ม
   function openProfileModal() {
+    profileEditScope = null;
+    el('profile-modal-title').textContent = 'โปรไฟล์ของฉัน';
+    el('profile-modal-sub').textContent = 'ชื่อ/รูปนี้จะใช้เป็นค่าเริ่มต้นกับทุกกลุ่มที่เข้าร่วม';
     el('profile-name-input').value = Identity.getName();
     pendingProfileAvatar = Identity.getAvatar();
+    renderProfileEmojiGrid();
+    renderProfileAvatarPreview();
+    showModal('modal-profile');
+  }
+  // เปิดจากการแตะชื่อตัวเองในแท็บ "สมาชิก" = แก้เฉพาะชื่อ/รูปในกลุ่มนี้กลุ่มเดียว ไม่กระทบกลุ่มอื่น
+  function openGroupProfileEdit(m) {
+    if (!currentGroup) return;
+    profileEditScope = currentGroup.id;
+    el('profile-modal-title').textContent = 'แก้ไขโปรไฟล์ในกลุ่มนี้';
+    el('profile-modal-sub').textContent = `ชื่อ/รูปนี้จะใช้เฉพาะในกลุ่ม "${currentGroup.name}" เท่านั้น`;
+    el('profile-name-input').value = m.name || Identity.getName();
+    pendingProfileAvatar = m.avatar || Identity.getAvatar();
     renderProfileEmojiGrid();
     renderProfileAvatarPreview();
     showModal('modal-profile');
@@ -271,14 +305,16 @@
   function renderProfileEmojiGrid() {
     const box = el('profile-emoji-grid');
     box.innerHTML = '';
-    AVATAR_EMOJIS.forEach(em => {
+    AVATAR_ICONS.forEach(ic => {
       const b = document.createElement('button');
       b.type = 'button';
-      const selected = pendingProfileAvatar && pendingProfileAvatar.type === 'emoji' && pendingProfileAvatar.value === em;
+      const selected = pendingProfileAvatar && pendingProfileAvatar.type === 'emoji'
+        && pendingProfileAvatar.value === ic.value && pendingProfileAvatar.bg === ic.bg;
       b.className = 'emoji-choice' + (selected ? ' selected' : '');
-      b.textContent = em;
+      b.style.background = ic.bg;
+      b.textContent = ic.value;
       b.addEventListener('click', () => {
-        pendingProfileAvatar = { type: 'emoji', value: em };
+        pendingProfileAvatar = { type: 'emoji', value: ic.value, bg: ic.bg };
         renderProfileEmojiGrid();
         renderProfileAvatarPreview();
       });
@@ -303,6 +339,15 @@
   el('btn-save-profile').addEventListener('click', async () => {
     const v = el('profile-name-input').value.trim();
     if (!v) { toast('กรุณาใส่ชื่อ'); return; }
+    if (profileEditScope) {
+      // แก้เฉพาะกลุ่มนี้กลุ่มเดียว ไม่แตะโปรไฟล์เริ่มต้น/กลุ่มอื่น
+      try {
+        await Groups.updateMyProfile(profileEditScope, { name: v, avatar: pendingProfileAvatar || null });
+        hideModal('modal-profile');
+        toast('บันทึกแล้ว (เฉพาะกลุ่มนี้)');
+      } catch (e) { toast('บันทึกไม่สำเร็จ'); }
+      return;
+    }
     Identity.setName(v);
     Identity.setAvatar(pendingProfileAvatar);
     VideoCall.setMyName(v);
@@ -591,8 +636,8 @@
       VideoCall.setUiHandlers({
         onIncoming: handleIncomingCall,
         onAccepted: () => { el('video-status').textContent = 'เชื่อมต่อแล้ว'; },
-        onEnded: (reason) => { showScreen('screen-room'); toast(reason === 'declined' ? 'อีกฝ่ายปฏิเสธสาย' : 'สายจบแล้ว'); },
-        onRemoteStream: (stream) => { el('remote-video').srcObject = stream; },
+        onEnded: (reason) => { stopRing(); showScreen('screen-room'); toast(reason === 'declined' ? 'อีกฝ่ายปฏิเสธสาย' : 'สายจบแล้ว'); },
+        onRemoteStream: (stream) => playRemoteStream(stream),
         onLocalStream: (stream) => { el('local-video').srcObject = stream; }
       });
       toast('🟢 ออนไลน์แล้ว - พร้อมใช้วิทยุ/รับสาย');
@@ -633,8 +678,12 @@
 
   // แสดงชื่อ+รูปคนที่กำลังกดวิทยุพูดอยู่ ให้เห็นตลอดทุกแท็บในห้อง (ไม่ใช่แค่แท็บวิทยุ)
   // เพื่อให้รู้ทันทีว่าใครกำลังพูดอยู่แม้กำลังดูแชท/สมาชิกอยู่ก็ตาม
+  let lastTalkingKey = '';
   function renderTalkingBanner(talkingUids) {
     const banner = el('onair-banner');
+    const key = (talkingUids || []).slice().sort().join(',');
+    if (key === lastTalkingKey) return; // ไม่มีอะไรเปลี่ยน ไม่ต้องวาดใหม่ กันจอกระพริบ
+    lastTalkingKey = key;
     if (!talkingUids || talkingUids.length === 0) { banner.classList.add('hidden'); banner.innerHTML = ''; return; }
     banner.innerHTML = talkingUids.map(uid => {
       const m = membersCache.find(x => x.uid === uid);
@@ -774,17 +823,16 @@
     membersCache.forEach(m => {
       const online = !!presenceCache[m.uid];
       const isMe = m.uid === Identity.getUid();
-      const hasActions = !isMe; // ไม่ใช่ตัวเอง = แตะเพื่อเปิดเมนู (แชทส่วนตัว/วิดีโอคอล/นำออก) ได้เสมอ
       const div = document.createElement('div');
-      div.className = 'member-item' + (hasActions ? ' tappable' : '');
+      div.className = 'member-item tappable';
       const dmDot = !isMe && dmUnreadFlags[m.uid] ? '<span class="dm-dot"></span>' : '';
       div.innerHTML = `
         <div class="m-avatar">${avatarHtml(m)}<span class="dot ${online ? 'online' : ''}"></span></div>
         <div class="m-name">${escapeHtml(m.name)}${isMe ? ' (คุณ)' : ''}${dmDot}
           <div class="m-role">${m.role === 'admin' ? 'แอดมิน' : 'สมาชิก'} · ${online ? 'ออนไลน์' : 'ออฟไลน์'}</div>
         </div>
-        ${hasActions ? '<div class="chevron">›</div>' : ''}`;
-      if (hasActions) div.addEventListener('click', () => openMemberSheet(m, online));
+        <div class="chevron">›</div>`;
+      div.addEventListener('click', () => isMe ? openGroupProfileEdit(m) : openMemberSheet(m, online));
       box.appendChild(div);
     });
   }
@@ -843,26 +891,79 @@
 
   // ---------- วิดีโอคอล ----------
   let pendingIncoming = null;
+
+  // เสียงเรียกเข้า: ดังวนจนกว่าจะรับสาย/ปฏิเสธ
+  function playRing() {
+    const a = el('ring-sound');
+    if (!a) return;
+    a.loop = true;
+    a.currentTime = 0;
+    a.play().catch(() => {});
+  }
+  function stopRing() {
+    const a = el('ring-sound');
+    if (!a) return;
+    a.pause();
+    a.currentTime = 0;
+  }
+
+  // แสดงวิดีโอของอีกฝ่าย - เบราว์เซอร์บางตัวบล็อกการเล่นวิดีโอ+เสียงอัตโนมัติ (autoplay policy)
+  // ถ้าโดนบล็อก ให้เล่นแบบปิดเสียงชั่วคราวก่อน (อย่างน้อยเห็นภาพ) แล้วโชว์ปุ่มให้กดเปิดเสียงเอง
+  function playRemoteStream(stream) {
+    const v = el('remote-video');
+    v.srcObject = stream;
+    el('btn-unmute-remote').classList.add('hidden');
+    const p = v.play();
+    if (p && p.catch) {
+      p.catch(() => {
+        v.muted = true;
+        v.play().catch(() => {});
+        el('btn-unmute-remote').classList.remove('hidden');
+      });
+    }
+  }
+  el('btn-unmute-remote').addEventListener('click', () => {
+    const v = el('remote-video');
+    v.muted = false;
+    v.play().catch(() => {});
+    el('btn-unmute-remote').classList.add('hidden');
+  });
+
+  // รีเซ็ตปุ่มปิดไมค์/ปิดกล้อง/ปุ่มเปิดเสียงทุกครั้งที่เริ่มสายใหม่
+  function resetCallControls() {
+    el('btn-toggle-mic').textContent = '🎤';
+    el('btn-toggle-mic').classList.remove('is-off');
+    el('btn-toggle-cam').textContent = '📷';
+    el('btn-toggle-cam').classList.remove('is-off');
+    el('local-video').classList.remove('cam-off');
+    el('btn-unmute-remote').classList.add('hidden');
+  }
+
   function handleIncomingCall(call) {
     pendingIncoming = call;
     el('incoming-call-name').textContent = call.fromName || 'เพื่อนร่วมทีม';
     showModal('modal-incoming-call');
+    playRing();
   }
   el('btn-accept-call').addEventListener('click', async () => {
+    stopRing();
     hideModal('modal-incoming-call');
     if (!pendingIncoming) return;
+    resetCallControls();
     showScreen('screen-video');
     el('video-status').textContent = 'กำลังเชื่อมต่อ...';
     await VideoCall.acceptCall(pendingIncoming);
     pendingIncoming = null;
   });
   el('btn-decline-call').addEventListener('click', async () => {
+    stopRing();
     hideModal('modal-incoming-call');
     if (pendingIncoming) await VideoCall.declineCall(pendingIncoming);
     pendingIncoming = null;
   });
 
   async function startVideoCallTo(member) {
+    resetCallControls();
     showScreen('screen-video');
     el('video-status').textContent = `กำลังโทรหา ${member.name}...`;
     try {
@@ -874,6 +975,17 @@
   }
 
   el('btn-switch-cam').addEventListener('click', () => VideoCall.switchCamera().catch(() => toast('สลับกล้องไม่สำเร็จ')));
+  el('btn-toggle-mic').addEventListener('click', () => {
+    const muted = VideoCall.toggleMic();
+    el('btn-toggle-mic').textContent = muted ? '🔇' : '🎤';
+    el('btn-toggle-mic').classList.toggle('is-off', muted);
+  });
+  el('btn-toggle-cam').addEventListener('click', () => {
+    const off = VideoCall.toggleCam();
+    el('btn-toggle-cam').textContent = off ? '📵' : '📷';
+    el('btn-toggle-cam').classList.toggle('is-off', off);
+    el('local-video').classList.toggle('cam-off', off);
+  });
   el('btn-hangup').addEventListener('click', async () => { await VideoCall.hangUp(); showScreen('screen-room'); });
 
   function escapeHtml(s) {

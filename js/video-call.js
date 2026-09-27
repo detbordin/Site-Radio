@@ -3,6 +3,7 @@ const VideoCall = (() => {
   let groupId = null, myUid = null, myName = null;
   let pc = null, localStream = null, sessionId = null, peerUid = null;
   let facingMode = 'user';
+  let micMuted = false, camOff = false;
   let ringRef = null, rtcBase = null;
   let listeners = [];
   let ui = {
@@ -136,9 +137,17 @@ const VideoCall = (() => {
   }
 
   async function switchCamera() {
-    facingMode = facingMode === 'user' ? 'environment' : 'user';
-    const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode }, audio: false });
+    const desired = facingMode === 'user' ? 'environment' : 'user';
+    let newStream;
+    try {
+      // ขอกล้องแบบเจาะจงฝั่ง (exact) ก่อน - เครื่องบางรุ่นไม่ยอมสลับจริงถ้าใช้แค่ facingMode เฉย ๆ
+      newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: desired } }, audio: false });
+    } catch (e) {
+      newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: desired }, audio: false });
+    }
+    facingMode = desired;
     const newTrack = newStream.getVideoTracks()[0];
+    newTrack.enabled = !camOff;
     if (pc) {
       const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
       if (sender) await sender.replaceTrack(newTrack);
@@ -146,7 +155,22 @@ const VideoCall = (() => {
     const oldTrack = localStream.getVideoTracks()[0];
     if (oldTrack) { localStream.removeTrack(oldTrack); oldTrack.stop(); }
     localStream.addTrack(newTrack);
-    ui.onLocalStream(localStream);
+    // สร้างสตรีมใหม่ไว้แสดงตัวอย่างในเครื่อง เพื่อบังคับให้วิดีโอรีเฟรชภาพแน่นอนในทุกเบราว์เซอร์
+    const previewStream = new MediaStream(localStream.getTracks());
+    ui.onLocalStream(previewStream);
+  }
+
+  // ปิด/เปิดไมค์ - เปิด/ปิดแทร็กเสียงที่ส่งออก (คนอีกฝั่งจะไม่ได้ยินตอนปิด)
+  function toggleMic() {
+    micMuted = !micMuted;
+    if (localStream) localStream.getAudioTracks().forEach(t => { t.enabled = !micMuted; });
+    return micMuted;
+  }
+  // ปิด/เปิดกล้อง - เปิด/ปิดแทร็กวิดีโอที่ส่งออก (คนอีกฝั่งจะเห็นจอดำตอนปิด แต่ยังได้ยินเสียงปกติ)
+  function toggleCam() {
+    camOff = !camOff;
+    if (localStream) localStream.getVideoTracks().forEach(t => { t.enabled = !camOff; });
+    return camOff;
   }
 
   async function hangUp() {
@@ -163,12 +187,13 @@ const VideoCall = (() => {
     if (pc) { try { pc.close(); } catch (e) {} pc = null; }
     if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
     peerUid = null; sessionId = null; rtcBase = null;
+    micMuted = false; camOff = false; facingMode = 'user';
   }
 
   function setMyName(n) { myName = n; }
 
   return {
     listenForIncoming, stopListening, startCall, acceptCall, declineCall,
-    switchCamera, hangUp, setUiHandlers, setMyName
+    switchCamera, toggleMic, toggleCam, hangUp, setUiHandlers, setMyName
   };
 })();

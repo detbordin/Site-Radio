@@ -6,21 +6,6 @@ const Mesh = (() => {
   let localStream = null;
   let peers = {}; // uid -> { pc, sendTrack, audioEl, analyser, talking }
   let onOnAirChange = () => {};
-  let squelchCtx = null;
-
-  function playSquelch(open) {
-    try {
-      if (!squelchCtx) squelchCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const o = squelchCtx.createOscillator();
-      const g = squelchCtx.createGain();
-      o.frequency.value = open ? 1400 : 900;
-      g.gain.value = 0.06;
-      o.connect(g); g.connect(squelchCtx.destination);
-      o.start();
-      g.gain.exponentialRampToValueAtTime(0.001, squelchCtx.currentTime + 0.15);
-      o.stop(squelchCtx.currentTime + 0.16);
-    } catch (e) {}
-  }
 
   async function ensureLocalStream() {
     if (localStream) return localStream;
@@ -135,15 +120,25 @@ const Mesh = (() => {
       analyser.fftSize = 512;
       src.connect(analyser);
       const data = new Uint8Array(analyser.frequencyBinCount);
+      let releaseTimer = null;
       setInterval(() => {
         analyser.getByteFrequencyData(data);
         const avg = data.reduce((a, b) => a + b, 0) / data.length;
-        const talking = avg > 12;
         const p = peers[uid];
-        if (p && talking !== p.talking) {
-          p.talking = talking;
-          if (talking) playSquelch(true);
-          onOnAirChange(getTalkingList());
+        if (!p) return;
+        const loud = avg > 12;
+        if (loud) {
+          // กำลังพูดอยู่ (หรือพูดต่อ) - ยกเลิกตัวจับเวลาที่จะตัดสถานะทิ้ง
+          if (releaseTimer) { clearTimeout(releaseTimer); releaseTimer = null; }
+          if (!p.talking) { p.talking = true; onOnAirChange(getTalkingList()); }
+        } else if (p.talking && !releaseTimer) {
+          // เงียบไปชั่วขณะ (เช่น เว้นจังหวะพูด) - รอสักครู่ก่อนตัดสินว่าเลิกพูดแล้วจริง ๆ
+          // กันไม่ให้ชื่อ/แถบคนพูดกระพริบถี่ ๆ ตามจังหวะเสียงพูด
+          releaseTimer = setTimeout(() => {
+            releaseTimer = null;
+            const p2 = peers[uid];
+            if (p2 && p2.talking) { p2.talking = false; onOnAirChange(getTalkingList()); }
+          }, 700);
         }
       }, 200);
     } catch (e) {}
@@ -181,13 +176,11 @@ const Mesh = (() => {
 
   // target: 'all' หรือ uid ของคนที่ต้องการวิทยุหา
   function pttDown(target) {
-    playSquelch(true);
     Object.entries(peers).forEach(([uid, p]) => {
       if (target === 'all' || uid === target) p.sendTrack.enabled = true;
     });
   }
   function pttUp() {
-    playSquelch(false);
     Object.values(peers).forEach(p => { p.sendTrack.enabled = false; });
   }
 
