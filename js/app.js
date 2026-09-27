@@ -8,8 +8,312 @@
   let isAdmin = false;
   let pttTarget = 'all';
   let pendingJoin = null; // { code, pass } จากลิงก์เชิญ/QR ที่รอเข้าร่วมหลังตั้งชื่อเสร็จ
+  let currentMsgsCache = []; // ข้อความล่าสุดของกลุ่มที่เปิดอยู่ (ไว้คำนวณอ่านแล้ว/ยังไม่อ่าน)
+  let pttResyncTimer = null;
+  let currentDmPeer = null; // { uid, name } ที่กำลังแชทส่วนตัวด้วยอยู่
+  let wakeLock = null;
+  let pendingProfileAvatar = null; // avatar ที่กำลังแก้ไขอยู่ในหน้าต่างโปรไฟล์ (ยังไม่บันทึก)
+
+  const AVATAR_EMOJIS = ['👷','👷‍♀️','🧑‍🔧','👨‍🔧','👩‍🔧','🦺','🧢','😀','😎','🤠','👤','📻'];
 
   const el = (id) => document.getElementById(id);
+
+  // ---------- ตัวช่วย: ข้อความที่ยังไม่ได้อ่าน (เก็บสถานะ "อ่านล่าสุด" ไว้ในเครื่อง) ----------
+  const READ_KEY = 'sr_last_read';       // { [groupId]: lastMsgId }
+  const DM_READ_KEY = 'sr_dm_last_read'; // { [peerUid]: lastMsgId }
+  function readMap(key) { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; } }
+  function writeMap(key, obj) { localStorage.setItem(key, JSON.stringify(obj)); }
+  function getLastRead(groupId) { return readMap(READ_KEY)[groupId] || null; }
+  function setLastRead(groupId, msgId) { const m = readMap(READ_KEY); m[groupId] = msgId; writeMap(READ_KEY, m); }
+  function getDmLastRead(peerUid) { return readMap(DM_READ_KEY)[peerUid] || null; }
+  function setDmLastRead(peerUid, msgId) { const m = readMap(DM_READ_KEY); m[peerUid] = msgId; writeMap(DM_READ_KEY, m); }
+
+  // นับข้อความที่ยังไม่ได้อ่านจากลิสต์ msgs (เรียงเก่า->ใหม่) เทียบกับ lastReadId
+  function countUnread(msgs, lastReadId, myUid) {
+    if (!msgs || msgs.length === 0) return 0;
+    let idx = lastReadId ? msgs.findIndex(m => m.id === lastReadId) : -1;
+    const after = idx === -1 ? msgs : msgs.slice(idx + 1);
+    return after.filter(m => m.senderUid !== myUid).length;
+  }
+
+  function renderBadge(count) {
+    return count > 0 ? `<span class="badge">${count > 99 ? '99+' : count}</span>` : '';
+  }
+
+  // ---------- ตัวนับข้อความยังไม่อ่านต่อกลุ่ม (ทำงานอยู่เบื้องหลังตลอด แม้ไม่ได้เปิดห้องนั้นอยู่) ----------
+  let unreadListeners = {}; // groupId -> unsub
+  let unreadCounts = {};    // groupId -> count
+  function watchGroupUnread(groupId) {
+    if (unreadListeners[groupId]) return;
+    unreadListeners[groupId] = db.collection('groups').doc(groupId).collection('messages')
+      .orderBy('createdAt', 'asc').limitToLast(100)
+      .onSnapshot(snap => {
+        const msgs = [];
+        snap.forEach(d => msgs.push({ id: d.id, ...d.data() }));
+        // ถ้ากำลังเปิดห้องนี้อยู่และดูแท็บแชท ให้ถือว่าอ่านแล้วทันที แทนการนับค้าง
+        if (currentGroup && currentGroup.id === groupId && document.getElementById('tab-chat').classList.contains('active')) {
+          const last = msgs[msgs.length - 1];
+          if (last) setLastRead(groupId, last.id);
+          unreadCounts[groupId] = 0;
+        } else {
+          unreadCounts[groupId] = countUnread(msgs, getLastRead(groupId), Identity.getUid());
+        }
+        updateUnreadBadgesUI();
+      }, () => {});
+  }
+  function unwatchGroupUnread(groupId) {
+    if (unreadListeners[groupId]) { unreadListeners[groupId](); delete unreadListeners[groupId]; }
+    delete unreadCounts[groupId];
+  }
+  function updateUnreadBadgesUI() {
+    // แถวในหน้ารายการกลุ่ม
+    document.querySelectorAll('#groups-list .group-item').forEach(div => {
+      const gid = div.dataset.groupId;
+      const box = div.querySelector('.g-badge');
+      if (box) box.innerHTML = renderBadge(unreadCounts[gid] || 0);
+    });
+    // ป้ายบนแท็บ "แชท" ด้านล่าง เมื่อกำลังอยู่ในห้องแต่ดูแท็บอื่น
+    const navBadge = document.querySelector('.nav-btn[data-tab="chat"] .n-badge');
+    if (navBadge) {
+      const c = currentGroup ? (unreadCounts[currentGroup.id] || 0) : 0;
+      navBadge.innerHTML = renderBadge(c);
+    }
+  }
+  function markCurrentGroupRead() {
+    if (!currentGroup) return;
+    const last = currentMsgsCache[currentMsgsCache.length - 1];
+    if (last) setLastRead(currentGroup.id, last.id);
+    unreadCounts[currentGroup.id] = 0;
+    updateUnreadBadgesUI();
+  }
+
+  // ---------- ตัวนับข้อความส่วนตัวยังไม่อ่านต่อคน (เฉพาะช่วงที่อยู่ในห้องที่มีคนนั้นเป็นสมาชิก) ----------
+  let dmUnreadListeners = {}; // peerUid -> unsub
+  let dmUnreadFlags = {};     // peerUid -> bool มีข้อความใหม่ไหม
+  function watchDmUnread(peerUid) {
+    if (dmUnreadListeners[peerUid]) return;
+    const key = pairKey(Identity.getUid(), peerUid);
+    dmUnreadListeners[peerUid] = db.collection('dm').doc(key).collection('messages')
+      .orderBy('createdAt', 'asc').limitToLast(1)
+      .onSnapshot(snap => {
+        let last = null;
+        snap.forEach(d => { last = { id: d.id, ...d.data() }; });
+        if (!last) { dmUnreadFlags[peerUid] = false; renderMembers(); return; }
+        const isOpenNow = currentDmPeer && currentDmPeer.uid === peerUid && !el('screen-dm').classList.contains('hidden');
+        if (isOpenNow) {
+          setDmLastRead(peerUid, last.id);
+          dmUnreadFlags[peerUid] = false;
+        } else {
+          const unread = last.senderUid !== Identity.getUid() && last.id !== getDmLastRead(peerUid);
+          if (unread && !dmUnreadFlags[peerUid]) {
+            toast(`💬 ข้อความส่วนตัวใหม่จาก ${last.senderName || 'เพื่อนร่วมทีม'}`);
+            playNotifySound();
+          }
+          dmUnreadFlags[peerUid] = unread;
+        }
+        renderMembers();
+      }, () => {});
+  }
+  function unwatchDmUnread(peerUid) {
+    if (dmUnreadListeners[peerUid]) { dmUnreadListeners[peerUid](); delete dmUnreadListeners[peerUid]; }
+    delete dmUnreadFlags[peerUid];
+  }
+
+  // ---------- แชทส่วนตัว 1:1 ----------
+  function openDm(member) {
+    currentDmPeer = { uid: member.uid, name: member.name };
+    el('dm-peer-name').textContent = member.name;
+    showScreen('screen-dm');
+    DM.listen(member.uid, (msgs) => {
+      renderDmMessages(msgs);
+      const last = msgs[msgs.length - 1];
+      if (last) { setDmLastRead(member.uid, last.id); dmUnreadFlags[member.uid] = false; renderMembers(); }
+    });
+  }
+  function closeDm() {
+    DM.stop();
+    currentDmPeer = null;
+    showScreen('screen-room');
+  }
+  el('btn-back-dm').addEventListener('click', closeDm);
+
+  function renderDmMessages(msgs) {
+    const box = el('dm-messages');
+    const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+    box.innerHTML = '';
+    msgs.forEach(m => {
+      const mine = m.senderUid === Identity.getUid();
+      const div = document.createElement('div');
+      div.className = 'msg' + (mine ? ' me' : '');
+      const time = m.createdAt && m.createdAt.toDate ? m.createdAt.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '';
+      div.innerHTML = `<div class="text">${escapeHtml(m.text || '')}</div><div class="time">${time}</div>`;
+      box.appendChild(div);
+    });
+    if (nearBottom) box.scrollTop = box.scrollHeight;
+  }
+
+  el('dm-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCurrentDmText(); });
+  el('btn-dm-send').addEventListener('click', sendCurrentDmText);
+  function sendCurrentDmText() {
+    const input = el('dm-input');
+    const v = input.value.trim();
+    if (!v || !currentDmPeer) return;
+    input.value = '';
+    DM.sendText(currentDmPeer.uid, v).catch(() => toast('ส่งข้อความไม่สำเร็จ'));
+  }
+
+  // ---------- Wake Lock: กันหน้าจอดับ/ล็อกตอนกำลังออนไลน์ ----------
+  // หมายเหตุ: ช่วยได้แค่ตอนที่ "หน้าจอเปิดอยู่" (กันดับเอง) เท่านั้น
+  // เว็บแอปไม่สามารถทำงานเบื้องหลังแบบเต็มรูปแบบตอนปิดหน้าจอ/สลับแอปอื่นได้จริง
+  // (เป็นข้อจำกัดของเบราว์เซอร์ โดยเฉพาะ iOS Safari) ต้องเปิดแอปทิ้งไว้หน้าจอจึงจะรับสาย/วิทยุได้แน่นอน
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLock = await navigator.wakeLock.request('screen');
+      }
+    } catch (e) { wakeLock = null; }
+  }
+  async function releaseWakeLock() {
+    try { if (wakeLock) { await wakeLock.release(); } } catch (e) {}
+    wakeLock = null;
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (isOnline && wakeLock === null && document.visibilityState === 'visible') {
+      requestWakeLock();
+    }
+  });
+
+  // ---------- ปุ่มกดแจ้งเตือน/เรียก (ping) ทั้งกลุ่ม หรือรายบุคคลในแชทส่วนตัว ----------
+  let pingListeners = {}; // groupId -> { ref, handler }
+  function watchGroupPing(groupId) {
+    if (pingListeners[groupId]) return;
+    const cutoff = Date.now() - 1500; // กันไม่ให้เสียงเก่าดังซ้ำตอนเพิ่งเข้าห้อง
+    const ref = rtdb.ref(`pings/${groupId}`).orderByChild('ts').startAt(cutoff);
+    const handler = (snap) => {
+      const p = snap.val();
+      if (!p || p.fromUid === Identity.getUid()) return;
+      if (p.target && p.target !== 'all' && p.target !== Identity.getUid()) return;
+      playAlertSound();
+      const toMe = p.target && p.target !== 'all';
+      toast(`🔔 ${p.fromName || 'เพื่อนร่วมทีม'} กดแจ้งเตือน${toMe ? 'ถึงคุณ' : 'ทั้งกลุ่ม'}`, 3200);
+    };
+    ref.on('child_added', handler, () => {});
+    pingListeners[groupId] = { ref, handler };
+  }
+  function unwatchGroupPing(groupId) {
+    const l = pingListeners[groupId];
+    if (l) { l.ref.off('child_added', l.handler); delete pingListeners[groupId]; }
+  }
+  function sendGroupPing(target) {
+    if (!currentGroup) return;
+    rtdb.ref(`pings/${currentGroup.id}`).push({
+      fromUid: Identity.getUid(),
+      fromName: Identity.getName(),
+      target: target || 'all',
+      ts: firebase.database.ServerValue.TIMESTAMP
+    }).catch(() => toast('ส่งแจ้งเตือนไม่สำเร็จ'));
+  }
+  function playAlertSound() {
+    const a = el('alert-sound');
+    if (!a) return;
+    a.currentTime = 0;
+    a.play().catch(() => {});
+  }
+  el('btn-ping-group').addEventListener('click', () => {
+    sendGroupPing('all');
+    toast('🔔 ส่งเสียงแจ้งเตือนถึงทั้งกลุ่มแล้ว');
+  });
+  el('btn-ping-dm').addEventListener('click', () => {
+    if (!currentDmPeer) return;
+    sendGroupPing(currentDmPeer.uid);
+    toast(`🔔 ส่งเสียงเรียก ${currentDmPeer.name} แล้ว`);
+  });
+
+  // ---------- อวตาร: รูปอัปโหลด/ไอคอนการ์ตูน หรือใช้ตัวอักษรแรกของชื่อแทน ----------
+  function avatarHtml(person) {
+    const av = person && person.avatar;
+    if (av && av.type === 'photo' && av.dataUrl) return `<img class="avatar-img" src="${av.dataUrl}" alt="">`;
+    if (av && av.type === 'emoji' && av.value) return `<span class="avatar-emoji">${av.value}</span>`;
+    return initials(person && person.name);
+  }
+
+  // ย่อขนาดรูปที่อัปโหลดให้เล็กพอจะเก็บเป็น base64 ใน Firestore ได้ (จำกัดเอกสารละ 1MB)
+  function resizeImageToDataUrl(file, maxSize = 220, quality = 0.72) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('อ่านไฟล์ไม่สำเร็จ'));
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('เปิดรูปไม่สำเร็จ'));
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > height) { if (width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; } }
+          else { if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; } }
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ---------- ป๊อปอัพแก้ไขโปรไฟล์ (ชื่อ + รูป/ไอคอน) ----------
+  function openProfileModal() {
+    el('profile-name-input').value = Identity.getName();
+    pendingProfileAvatar = Identity.getAvatar();
+    renderProfileEmojiGrid();
+    renderProfileAvatarPreview();
+    showModal('modal-profile');
+  }
+  function renderProfileEmojiGrid() {
+    const box = el('profile-emoji-grid');
+    box.innerHTML = '';
+    AVATAR_EMOJIS.forEach(em => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      const selected = pendingProfileAvatar && pendingProfileAvatar.type === 'emoji' && pendingProfileAvatar.value === em;
+      b.className = 'emoji-choice' + (selected ? ' selected' : '');
+      b.textContent = em;
+      b.addEventListener('click', () => {
+        pendingProfileAvatar = { type: 'emoji', value: em };
+        renderProfileEmojiGrid();
+        renderProfileAvatarPreview();
+      });
+      box.appendChild(b);
+    });
+  }
+  function renderProfileAvatarPreview() {
+    el('profile-avatar-preview').innerHTML = avatarHtml({ avatar: pendingProfileAvatar, name: Identity.getName() });
+  }
+  el('btn-pick-photo').addEventListener('click', () => el('profile-photo-input').click());
+  el('profile-photo-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const dataUrl = await resizeImageToDataUrl(file);
+      pendingProfileAvatar = { type: 'photo', dataUrl };
+      renderProfileEmojiGrid();
+      renderProfileAvatarPreview();
+    } catch (err) { toast('อัปโหลดรูปไม่สำเร็จ'); }
+  });
+  el('btn-save-profile').addEventListener('click', async () => {
+    const v = el('profile-name-input').value.trim();
+    if (!v) { toast('กรุณาใส่ชื่อ'); return; }
+    Identity.setName(v);
+    Identity.setAvatar(pendingProfileAvatar);
+    VideoCall.setMyName(v);
+    hideModal('modal-profile');
+    toast('บันทึกโปรไฟล์แล้ว');
+    renderMembers();
+    const groups = Groups.getMyGroups();
+    groups.forEach(g => {
+      Groups.updateMyProfile(g.id, { name: v, avatar: pendingProfileAvatar || null }).catch(() => {});
+    });
+  });
 
   function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
@@ -47,6 +351,20 @@
   function closeSheet() { el('sheet-overlay').classList.add('hidden'); }
   el('sheet-overlay').addEventListener('click', (e) => { if (e.target.id === 'sheet-overlay') closeSheet(); });
 
+  // ---------- ขอสิทธิ์ไมค์/กล้องล่วงหน้า ----------
+  // ขอตั้งแต่เข้าแอปครั้งแรกเลย เพื่อให้กดวิทยุ/วิดีโอคอลได้ทันทีโดยไม่ต้องเจอป๊อปอัพขอสิทธิ์อีก
+  let mediaPermissionAsked = false;
+  async function requestMediaPermissionsOnce() {
+    if (mediaPermissionAsked) return;
+    mediaPermissionAsked = true;
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      s.getTracks().forEach(t => t.stop());
+    } catch (e) {
+      // ผู้ใช้กดปฏิเสธ หรือเครื่องไม่มีกล้อง/ไมค์ - ปล่อยผ่าน ฟีเจอร์ที่เกี่ยวข้องจะแจ้งเตือนตอนใช้งานจริงเอง
+    }
+  }
+
   // ---------- ชื่อผู้ใช้ ----------
   async function init() {
     await Identity.signIn();
@@ -68,6 +386,7 @@
     } else {
       showScreen('screen-groups');
       renderGroupsList();
+      requestMediaPermissionsOnce();
       if (pendingJoin) { const pj = pendingJoin; pendingJoin = null; await autoJoin(pj.code, pj.pass); }
     }
   }
@@ -79,6 +398,7 @@
     VideoCall.setMyName(v);
     showScreen('screen-groups');
     renderGroupsList();
+    requestMediaPermissionsOnce();
     if (pendingJoin) { const pj = pendingJoin; pendingJoin = null; await autoJoin(pj.code, pj.pass); }
   });
 
@@ -129,10 +449,7 @@
     showModal('modal-qr');
   }
 
-  el('btn-my-name').addEventListener('click', () => {
-    const v = prompt('เปลี่ยนชื่อของคุณ', Identity.getName());
-    if (v && v.trim()) { Identity.setName(v.trim()); VideoCall.setMyName(v.trim()); toast('เปลี่ยนชื่อแล้ว'); }
-  });
+  el('btn-my-name').addEventListener('click', openProfileModal);
 
   // ---------- รายการกลุ่ม ----------
   function renderGroupsList() {
@@ -146,15 +463,18 @@
     list.forEach(g => {
       const div = document.createElement('div');
       div.className = 'group-item';
+      div.dataset.groupId = g.id;
       div.innerHTML = `
         <div class="avatar">📻</div>
         <div class="info">
           <div class="g-name">${escapeHtml(g.name)}</div>
           <div class="g-role">${g.role === 'admin' ? 'แอดมิน' : 'สมาชิก'} · รหัส ${g.id}</div>
         </div>
+        <span class="g-badge">${renderBadge(unreadCounts[g.id] || 0)}</span>
         <div class="chevron">›</div>`;
       div.addEventListener('click', () => enterRoom(g));
       box.appendChild(div);
+      watchGroupUnread(g.id);
     });
   }
 
@@ -193,18 +513,30 @@
   });
 
   // ---------- ห้องกลุ่ม ----------
+  let isOnline = false;
   async function enterRoom(g) {
     currentGroup = g;
     pttTarget = 'all';
+    isOnline = false;
     el('room-name').textContent = g.name;
     showScreen('screen-room');
     switchTab('chat');
+    updateOnlineToggleUI();
 
     const infoRes = await Groups.getGroupInfo(g.id).catch(() => null);
     isAdmin = infoRes && infoRes.adminUid === Identity.getUid();
 
+    // แชท/สมาชิก ทำงานตลอดเวลาไม่ว่าจะกด "ออนไลน์" หรือไม่ (เหมือนแอปแชททั่วไป อ่านข้อความได้เสมอ)
     Chat.listen(g.id, (msgs, isNewIncoming) => {
+      currentMsgsCache = msgs;
       renderMessages(msgs);
+      const chatTabActive = el('tab-chat').classList.contains('active');
+      if (chatTabActive) {
+        markCurrentGroupRead();
+      } else {
+        unreadCounts[g.id] = countUnread(msgs, getLastRead(g.id), Identity.getUid());
+        updateUnreadBadgesUI();
+      }
       if (isNewIncoming) {
         const last = msgs[msgs.length - 1];
         if (last && last.senderUid !== Identity.getUid()) {
@@ -212,38 +544,83 @@
         }
       }
     });
+    watchGroupUnread(g.id);
 
     unsubMembers = Groups.listenMembers(g.id, (members) => {
       membersCache = members;
       renderMembers();
+      members.forEach(m => { if (m.uid !== Identity.getUid()) watchDmUnread(m.uid); });
     });
 
-    Presence.goOnline(g.id);
-    unsubPresence = Presence.listen(g.id, (presence) => {
-      presenceCache = presence;
+    watchGroupPing(g.id);
+  }
+
+  // เปิด/ปิด "ออนไลน์" ด้วยตัวเอง (เหมือนสวิตช์เปิดวิทยุ) - ควบคุมสถานะออนไลน์, วิทยุ (PTT) และรับสายวิดีโอคอล
+  el('btn-online-toggle').addEventListener('click', () => {
+    if (!currentGroup) return;
+    setOnline(!isOnline);
+  });
+
+  async function setOnline(on) {
+    isOnline = on;
+    updateOnlineToggleUI();
+    if (!currentGroup) return;
+    const g = currentGroup;
+
+    if (on) {
+      requestWakeLock();
+      Presence.goOnline(g.id);
+      if (unsubPresence) unsubPresence();
+      unsubPresence = Presence.listen(g.id, (presence) => {
+        presenceCache = presence;
+        renderMembers();
+        const onlineUids = Object.keys(presence);
+        Mesh.syncOnlinePeers(onlineUids).catch(() => {});
+        updateRadioStatus();
+      });
+
+      if (pttResyncTimer) clearInterval(pttResyncTimer);
+      pttResyncTimer = setInterval(() => {
+        Mesh.syncOnlinePeers(Object.keys(presenceCache)).catch(() => {});
+      }, 6000);
+
+      await Mesh.start(g.id, Identity.getUid());
+      Mesh.onTalking((talkingUids) => {
+        const banner = el('onair-banner');
+        if (talkingUids.length === 0) { banner.classList.add('hidden'); return; }
+        const names = talkingUids.map(uid => nameOf(uid)).join(', ');
+        banner.textContent = `🔊 ${names} กำลังพูด`;
+        banner.classList.remove('hidden');
+      });
+
+      VideoCall.listenForIncoming(g.id, Identity.getUid());
+      VideoCall.setUiHandlers({
+        onIncoming: handleIncomingCall,
+        onAccepted: () => { el('video-status').textContent = 'เชื่อมต่อแล้ว'; },
+        onEnded: (reason) => { showScreen('screen-room'); toast(reason === 'declined' ? 'อีกฝ่ายปฏิเสธสาย' : 'สายจบแล้ว'); },
+        onRemoteStream: (stream) => { el('remote-video').srcObject = stream; },
+        onLocalStream: (stream) => { el('local-video').srcObject = stream; }
+      });
+      toast('🟢 ออนไลน์แล้ว - พร้อมใช้วิทยุ/รับสาย');
+    } else {
+      releaseWakeLock();
+      Presence.goOffline();
+      if (unsubPresence) { unsubPresence(); unsubPresence = null; }
+      if (pttResyncTimer) { clearInterval(pttResyncTimer); pttResyncTimer = null; }
+      Mesh.stop();
+      VideoCall.stopListening();
+      presenceCache = {};
       renderMembers();
-      const onlineUids = Object.keys(presence);
-      Mesh.syncOnlinePeers(onlineUids).catch(() => {});
-      updateRadioStatus();
-    });
+      el('room-sub').textContent = 'ออฟไลน์';
+      el('radio-status').textContent = 'กดปุ่มออนไลน์เพื่อเริ่มใช้วิทยุ';
+      toast('⚪ ออฟไลน์แล้ว');
+    }
+  }
 
-    await Mesh.start(g.id, Identity.getUid());
-    Mesh.onTalking((talkingUids) => {
-      const banner = el('onair-banner');
-      if (talkingUids.length === 0) { banner.classList.add('hidden'); return; }
-      const names = talkingUids.map(uid => nameOf(uid)).join(', ');
-      banner.textContent = `🔊 ${names} กำลังพูด`;
-      banner.classList.remove('hidden');
-    });
-
-    VideoCall.listenForIncoming(g.id, Identity.getUid());
-    VideoCall.setUiHandlers({
-      onIncoming: handleIncomingCall,
-      onAccepted: () => { el('video-status').textContent = 'เชื่อมต่อแล้ว'; },
-      onEnded: (reason) => { showScreen('screen-room'); toast(reason === 'declined' ? 'อีกฝ่ายปฏิเสธสาย' : 'สายจบแล้ว'); },
-      onRemoteStream: (stream) => { el('remote-video').srcObject = stream; },
-      onLocalStream: (stream) => { el('local-video').srcObject = stream; }
-    });
+  function updateOnlineToggleUI() {
+    const btn = el('btn-online-toggle');
+    btn.textContent = isOnline ? '🟢 ออนไลน์' : '🔴 ออฟไลน์';
+    btn.classList.toggle('is-online', isOnline);
   }
 
   function updateRadioStatus() {
@@ -266,6 +643,11 @@
     Presence.goOffline();
     Mesh.stop();
     VideoCall.stopListening();
+    releaseWakeLock();
+    if (pttResyncTimer) { clearInterval(pttResyncTimer); pttResyncTimer = null; }
+    if (currentGroup) unwatchGroupPing(currentGroup.id);
+    membersCache.forEach(m => { if (m.uid !== Identity.getUid()) unwatchDmUnread(m.uid); });
+    isOnline = false;
     currentGroup = null;
   }
 
@@ -299,8 +681,10 @@
 
   async function leaveCurrentGroup() {
     if (!confirm('ออกจากกลุ่มนี้ใช่หรือไม่?')) return;
-    await Groups.leaveGroup(currentGroup.id);
+    const gid = currentGroup.id;
+    await Groups.leaveGroup(gid);
     leaveRoomCleanup();
+    unwatchGroupUnread(gid);
     showScreen('screen-groups');
     renderGroupsList();
   }
@@ -313,6 +697,7 @@
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     el('tab-' + tab).classList.add('active');
+    if (tab === 'chat') markCurrentGroupRead();
   }
 
   // ---------- แชท ----------
@@ -380,12 +765,13 @@
     membersCache.forEach(m => {
       const online = !!presenceCache[m.uid];
       const isMe = m.uid === Identity.getUid();
-      const hasActions = !isMe && (online || isAdmin);
+      const hasActions = !isMe; // ไม่ใช่ตัวเอง = แตะเพื่อเปิดเมนู (แชทส่วนตัว/วิดีโอคอล/นำออก) ได้เสมอ
       const div = document.createElement('div');
       div.className = 'member-item' + (hasActions ? ' tappable' : '');
+      const dmDot = !isMe && dmUnreadFlags[m.uid] ? '<span class="dm-dot"></span>' : '';
       div.innerHTML = `
-        <div class="m-avatar">${initials(m.name)}<span class="dot ${online ? 'online' : ''}"></span></div>
-        <div class="m-name">${escapeHtml(m.name)}${isMe ? ' (คุณ)' : ''}
+        <div class="m-avatar">${avatarHtml(m)}<span class="dot ${online ? 'online' : ''}"></span></div>
+        <div class="m-name">${escapeHtml(m.name)}${isMe ? ' (คุณ)' : ''}${dmDot}
           <div class="m-role">${m.role === 'admin' ? 'แอดมิน' : 'สมาชิก'} · ${online ? 'ออนไลน์' : 'ออฟไลน์'}</div>
         </div>
         ${hasActions ? '<div class="chevron">›</div>' : ''}`;
@@ -396,6 +782,7 @@
 
   function openMemberSheet(m, online) {
     const items = [];
+    items.push({ icon: '💬', label: 'ข้อความส่วนตัวถึง ' + m.name, onClick: () => openDm(m) });
     if (online) items.push({ icon: '📹', label: 'วิดีโอคอลหา ' + m.name, onClick: () => startVideoCallTo(m) });
     if (isAdmin) items.push({ icon: '🚫', label: 'นำออกจากกลุ่ม', danger: true, onClick: () => removeMember(m) });
     openSheet(m.name, items);

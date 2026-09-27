@@ -41,6 +41,7 @@
       <div id="room-name">ชื่อกลุ่ม</div>
       <div id="room-sub" class="room-sub">0 คนออนไลน์</div>
     </div>
+    <button id="btn-online-toggle" class="online-toggle">🔴 ออฟไลน์</button>
     <button id="btn-room-menu" class="icon-btn" title="เมนู">⋮</button>
   </header>
 
@@ -61,6 +62,7 @@
 
   <div id="tab-radio" class="tab-content radio-tab">
     <div id="onair-banner" class="onair-banner hidden"></div>
+    <button id="btn-ping-group" class="alert-btn">🔔 กดแจ้งเตือนทั้งกลุ่ม (ทุกเครื่องจะได้ยินเสียง)</button>
     <button id="btn-ptt-target" class="target-chip">📢 ทั้งกลุ่ม</button>
     <button id="btn-ptt" class="ptt-button">
       <span class="ptt-icon">🎙️</span>
@@ -70,10 +72,26 @@
   </div>
 
   <nav class="bottom-nav">
-    <button class="nav-btn active" data-tab="chat"><span class="nav-icon">💬</span><span>แชท</span></button>
+    <button class="nav-btn active" data-tab="chat"><span class="nav-icon">💬</span><span>แชท</span><span class="n-badge"></span></button>
     <button class="nav-btn" data-tab="members"><span class="nav-icon">👥</span><span>สมาชิก</span></button>
     <button class="nav-btn" data-tab="radio"><span class="nav-icon">📻</span><span>วิทยุ</span></button>
   </nav>
+</section>
+
+<!-- หน้าแชทส่วนตัว 1:1 -->
+<section id="screen-dm" class="screen hidden">
+  <header class="topbar">
+    <button id="btn-back-dm" class="icon-btn">←</button>
+    <div class="room-title">
+      <div id="dm-peer-name">ข้อความส่วนตัว</div>
+    </div>
+    <button id="btn-ping-dm" class="icon-btn" title="เรียกเตือน">🔔</button>
+  </header>
+  <div id="dm-messages" class="chat-messages"></div>
+  <div class="chat-input-row">
+    <input id="dm-input" type="text" placeholder="พิมพ์ข้อความส่วนตัว...">
+    <button id="btn-dm-send" class="icon-btn send">➤</button>
+  </div>
 </section>
 
 <!-- แผ่นตัวเลือกอเนกประสงค์ (แทนการโชว์ปุ่มทุกอันบนหน้าเดียว) -->
@@ -128,6 +146,23 @@
   </div>
 </div>
 
+<!-- ป๊อปอัพ: แก้ไขโปรไฟล์ (ชื่อ + รูป/ไอคอน) -->
+<div id="modal-profile" class="modal hidden">
+  <div class="modal-card profile-card">
+    <h3>โปรไฟล์ของฉัน</h3>
+    <div id="profile-avatar-preview" class="profile-avatar-preview"></div>
+    <input id="profile-name-input" type="text" placeholder="ชื่อที่จะให้คนอื่นเห็น" maxlength="30">
+    <input id="profile-photo-input" type="file" accept="image/*" class="hidden">
+    <button id="btn-pick-photo" class="btn-secondary" type="button">📷 อัปโหลดรูปตัวเอง</button>
+    <div class="sub" style="margin:14px 0 6px;">หรือเลือกไอคอนการ์ตูน</div>
+    <div id="profile-emoji-grid" class="emoji-grid"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost modal-close">ยกเลิก</button>
+      <button id="btn-save-profile" class="btn-primary">บันทึก</button>
+    </div>
+  </div>
+</div>
+
 <!-- โทรเข้า -->
 <div id="modal-incoming-call" class="modal hidden">
   <div class="modal-card call-card">
@@ -159,6 +194,11 @@
   <source src="icons/notify.mp3" type="audio/mpeg">
 </audio>
 
+<!-- เสียงแจ้งเตือน/เรียก (ปุ่มกดแจ้งเตือน) -->
+<audio id="alert-sound" preload="auto">
+  <source src="icons/notify.mp3" type="audio/mpeg">
+</audio>
+
 <!-- Firebase SDK (compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -174,6 +214,7 @@
 <script src="js/groups.js"></script>
 <script src="js/presence.js"></script>
 <script src="js/chat.js"></script>
+<script src="js/dm.js"></script>
 <script src="js/rtc-common.js"></script>
 <script src="js/mesh.js"></script>
 <script src="js/video-call.js"></script>

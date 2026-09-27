@@ -76,7 +76,12 @@ const Mesh = (() => {
   async function createPeerAsCallee(uid) {
     const key = pairKey(myUid, uid);
     const base = rtdb.ref(`rtc/${groupId}/ptt/${key}`);
-    const offerSnap = await base.child('offer').get();
+    // ฝั่งนี้อาจมาถึงก่อนที่อีกฝั่ง (ผู้โทร) จะเขียน offer ทัน จึงลองรออีกสักครู่แทนที่จะยอมแพ้ทันที
+    let offerSnap = await base.child('offer').get();
+    for (let tries = 0; !offerSnap.exists() && tries < 6; tries++) {
+      await new Promise(r => setTimeout(r, 400));
+      offerSnap = await base.child('offer').get();
+    }
     if (!offerSnap.exists()) return;
     const offerVal = offerSnap.val();
 
@@ -114,8 +119,10 @@ const Mesh = (() => {
       watchVolume(uid, e.streams[0]);
     };
     pc.onconnectionstatechange = () => {
-      if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) {
-        // ปล่อยให้ presence loop เชื่อมใหม่ในรอบถัดไปถ้ายังออนไลน์อยู่
+      // เชื่อมต่อล้มเหลว (มักเกิดจาก NAT/เครือข่ายมือถือ) - ล้างทิ้งเพื่อให้รอบ sync ถัดไป
+      // (ตั้งเวลาไว้ทุก ๆ ไม่กี่วินาทีใน app.js) เชื่อมต่อใหม่ให้อัตโนมัติ
+      if (['failed', 'closed'].includes(pc.connectionState)) {
+        cleanupPeer(uid);
       }
     };
   }

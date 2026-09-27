@@ -21,6 +21,13 @@
           ".write": "auth != null"
         }
       }
+    },
+    "pings": {
+      "$groupId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".indexOn": ["ts"]
+      }
     }
   }
 }

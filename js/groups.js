@@ -52,6 +52,7 @@ const Groups = (() => {
 
     await db.collection('groups').doc(groupId).collection('members').doc(uid).set({
       name,
+      avatar: Identity.getAvatar() || null,
       role: 'admin',
       joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
       joinPasswordHash: passwordHash
@@ -74,6 +75,7 @@ const Groups = (() => {
 
     await db.collection('groups').doc(groupId).collection('members').doc(uid).set({
       name,
+      avatar: Identity.getAvatar() || null,
       role: uid === group.adminUid ? 'admin' : 'member',
       joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
       joinPasswordHash: passwordHash
@@ -81,6 +83,16 @@ const Groups = (() => {
 
     saveMyGroup({ id: groupId, name: group.name, role: uid === group.adminUid ? 'admin' : 'member' });
     return { groupId, name: group.name };
+  }
+
+  // อัปเดตชื่อ/รูปโปรไฟล์ของตัวเองในกลุ่มที่เข้าร่วมอยู่แล้ว (ไม่กระทบ role/joinedAt/joinPasswordHash)
+  async function updateMyProfile(groupId, { name, avatar } = {}) {
+    const uid = Identity.getUid();
+    const data = {};
+    if (name !== undefined) data.name = name;
+    if (avatar !== undefined) data.avatar = avatar || null;
+    if (Object.keys(data).length === 0) return;
+    await db.collection('groups').doc(groupId).collection('members').doc(uid).update(data);
   }
 
   async function getGroupInfo(groupId) {
@@ -110,7 +122,7 @@ const Groups = (() => {
   }
 
   return {
-    createGroup, joinGroup, getGroupInfo, listenMembers,
+    createGroup, joinGroup, getGroupInfo, listenMembers, updateMyProfile,
     removeMember, leaveGroup, getMyGroups, saveMyGroup, removeMyGroup, getGroupPassword
   };
 })();

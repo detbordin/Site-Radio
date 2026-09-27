@@ -261,6 +261,66 @@ input::placeholder { color: var(--muted); }
 .icon-btn.big { width: 60px; height: 60px; font-size: 25px; background: rgba(255,255,255,0.15); color: #fff; backdrop-filter: blur(8px); }
 .icon-btn.big.danger { background: var(--danger); }
 
+/* ---------- ป้ายแจ้งเตือนข้อความยังไม่อ่าน ---------- */
+.badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  background: var(--danger); color: #fff; font-size: 11px; font-weight: 700;
+  line-height: 20px;
+}
+.group-item .g-badge { flex-shrink: 0; }
+.nav-btn { position: relative; }
+.nav-btn .n-badge:empty { display: none; }
+.nav-btn .n-badge {
+  position: absolute; top: 2px; right: 22%;
+}
+.nav-btn .n-badge .badge { min-width: 16px; height: 16px; line-height: 16px; font-size: 10px; padding: 0 4px; }
+.m-name { position: relative; }
+.dm-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); margin-left: 6px; vertical-align: middle;
+  box-shadow: 0 0 5px var(--accent);
+}
+
+/* ---------- ปุ่มออนไลน์/ออฟไลน์ (สวิตช์เปิดวิทยุด้วยตัวเอง) ---------- */
+.online-toggle {
+  flex-shrink: 0; background: var(--card); border: 1px solid var(--border); color: var(--muted);
+  padding: 8px 12px; border-radius: 20px; font-size: 12.5px; font-weight: 700;
+}
+.online-toggle.is-online {
+  background: rgba(45,212,167,0.15); border-color: var(--ok); color: var(--ok);
+}
+
+/* ---------- ปุ่มกดแจ้งเตือน/เรียก (ping) ---------- */
+.alert-btn {
+  background: var(--card); border: 1px solid var(--border); color: var(--text);
+  padding: 12px 18px; border-radius: 20px; font-size: 13.5px; font-weight: 700;
+}
+.alert-btn:active { background: var(--card-2); transform: scale(0.98); }
+
+/* ---------- อวตาร: รูปที่อัปโหลด/ไอคอนการ์ตูน ---------- */
+.avatar-img {
+  width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+}
+.avatar-emoji { font-size: 20px; line-height: 1; }
+.group-item .avatar .avatar-img { border-radius: 15px; }
+
+.profile-card { text-align: center; }
+.profile-avatar-preview {
+  width: 84px; height: 84px; border-radius: 50%; margin: 4px auto 14px; overflow: hidden;
+  background: linear-gradient(145deg, var(--card-2), var(--bg-elev));
+  display: flex; align-items: center; justify-content: center; font-size: 34px; font-weight: 700; color: var(--muted);
+}
+.emoji-grid {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 4px;
+}
+.emoji-choice {
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  font-size: 20px; padding: 8px 0; line-height: 1;
+}
+.emoji-choice.selected { border-color: var(--accent); background: rgba(255,122,69,0.15); }
+.emoji-choice:active { transform: scale(0.94); }
+
 .toast {
   position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
   background: var(--card); border: 1px solid var(--border); color: var(--text);

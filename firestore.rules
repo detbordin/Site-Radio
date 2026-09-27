@@ -41,5 +41,14 @@ service cloud.firestore {
         allow update, delete: if false;
       }
     }
+
+    // แชทส่วนตัว 1:1 - thread id คือ uid สองฝั่งเรียงแล้วต่อกันด้วย "__" (ดู pairKey ใน rtc-common.js)
+    // อนุญาตเฉพาะสองฝั่งที่ uid ของตัวเองอยู่ใน thread id นี้เท่านั้น
+    match /dm/{pairId}/messages/{msgId} {
+      allow read: if isSignedIn() && pairId.matches('.*' + request.auth.uid + '.*');
+      allow create: if isSignedIn() && pairId.matches('.*' + request.auth.uid + '.*')
+                    && request.resource.data.senderUid == request.auth.uid;
+      allow update, delete: if false;
+    }
   }
 }
