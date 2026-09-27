@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function groupDoc(groupId) {
+      return get(/databases/$(database)/documents/groups/$(groupId)).data;
+    }
+
+    function isMember(groupId) {
+      return exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    }
+
+    function isAdmin(groupId) {
+      return isSignedIn() && groupDoc(groupId).adminUid == request.auth.uid;
+    }
+
+    match /groups/{groupId} {
+      allow get: if isSignedIn();
+      allow list: if false; // ห้ามค้นหา/ไล่ดูกลุ่มทั้งหมด ต้องรู้รหัสกลุ่มเท่านั้น
+      allow create: if isSignedIn() && request.resource.data.adminUid == request.auth.uid;
+      allow update, delete: if isAdmin(groupId);
+
+      match /members/{uid} {
+        allow read: if isSignedIn() && isMember(groupId);
+        // สร้างสมาชิกได้เอง ถ้าเป็นแอดมิน (ผู้สร้างกลุ่ม) หรือรหัสผ่านที่ส่งมาตรงกับของกลุ่ม
+        allow create: if isSignedIn() && request.auth.uid == uid && (
+          groupDoc(groupId).adminUid == uid ||
+          request.resource.data.joinPasswordHash == groupDoc(groupId).passwordHash
+        );
+        allow update: if isSignedIn() && (request.auth.uid == uid || isAdmin(groupId));
+        allow delete: if isSignedIn() && (request.auth.uid == uid || isAdmin(groupId));
+      }
+
+      match /messages/{msgId} {
+        allow read: if isSignedIn() && isMember(groupId);
+        allow create: if isSignedIn() && isMember(groupId) && request.resource.data.senderUid == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+  }
+}

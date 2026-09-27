@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>วิทยุไซต์งาน</title>
+<meta name="theme-color" content="#0b1220">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- หน้าตั้งชื่อ (ครั้งแรก) -->
+<section id="screen-name" class="screen">
+  <div class="center-card">
+    <div class="brand-mark">📻</div>
+    <h1>วิทยุไซต์งาน</h1>
+    <p class="sub">ตั้งชื่อของคุณเพื่อเริ่มใช้งาน</p>
+    <input id="input-name" type="text" placeholder="ชื่อที่จะให้คนอื่นเห็น เช่น ช่าง A" maxlength="30">
+    <button id="btn-save-name" class="btn-primary">เริ่มใช้งาน</button>
+  </div>
+</section>
+
+<!-- หน้ารายการกลุ่ม -->
+<section id="screen-groups" class="screen hidden">
+  <header class="topbar">
+    <h2>กลุ่มของฉัน</h2>
+    <button id="btn-my-name" class="icon-btn" title="ชื่อของฉัน">👤</button>
+  </header>
+  <div id="groups-list" class="groups-list"></div>
+  <button id="btn-fab-add" class="fab" title="เพิ่มกลุ่ม">+</button>
+</section>
+
+<!-- หน้าห้องกลุ่ม -->
+<section id="screen-room" class="screen hidden">
+  <header class="topbar">
+    <button id="btn-back-room" class="icon-btn">←</button>
+    <div class="room-title">
+      <div id="room-name">ชื่อกลุ่ม</div>
+      <div id="room-sub" class="room-sub">0 คนออนไลน์</div>
+    </div>
+    <button id="btn-room-menu" class="icon-btn" title="เมนู">⋮</button>
+  </header>
+
+  <div id="tab-chat" class="tab-content active">
+    <div id="chat-messages" class="chat-messages"></div>
+    <div class="chat-input-row">
+      <button id="btn-attach" class="icon-btn">📷</button>
+      <input id="file-camera" type="file" accept="image/*" capture="environment" class="hidden">
+      <input id="file-gallery" type="file" accept="image/*" class="hidden">
+      <input id="chat-input" type="text" placeholder="พิมพ์ข้อความ...">
+      <button id="btn-send" class="icon-btn send">➤</button>
+    </div>
+  </div>
+
+  <div id="tab-members" class="tab-content">
+    <div id="members-list" class="members-list"></div>
+  </div>
+
+  <div id="tab-radio" class="tab-content radio-tab">
+    <div id="onair-banner" class="onair-banner hidden"></div>
+    <button id="btn-ptt-target" class="target-chip">📢 ทั้งกลุ่ม</button>
+    <button id="btn-ptt" class="ptt-button">
+      <span class="ptt-icon">🎙️</span>
+      <span class="ptt-label">กดค้างเพื่อพูด</span>
+    </button>
+    <div id="radio-status" class="radio-status">กำลังเชื่อมต่อวิทยุ...</div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-tab="chat"><span class="nav-icon">💬</span><span>แชท</span></button>
+    <button class="nav-btn" data-tab="members"><span class="nav-icon">👥</span><span>สมาชิก</span></button>
+    <button class="nav-btn" data-tab="radio"><span class="nav-icon">📻</span><span>วิทยุ</span></button>
+  </nav>
+</section>
+
+<!-- แผ่นตัวเลือกอเนกประสงค์ (แทนการโชว์ปุ่มทุกอันบนหน้าเดียว) -->
+<div id="sheet-overlay" class="sheet-overlay hidden">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div id="sheet-title" class="sheet-title"></div>
+    <div id="sheet-body" class="sheet-body"></div>
+  </div>
+</div>
+
+<!-- ป๊อปอัพ: สร้างกลุ่ม -->
+<div id="modal-create" class="modal hidden">
+  <div class="modal-card">
+    <h3>สร้างกลุ่มใหม่</h3>
+    <input id="create-group-name" type="text" placeholder="ชื่อกลุ่ม เช่น ไซต์งานพระราม 9">
+    <input id="create-group-pass" type="text" placeholder="ตั้งรหัสผ่านกลุ่ม">
+    <div class="modal-actions">
+      <button class="btn-ghost modal-close">ยกเลิก</button>
+      <button id="btn-do-create" class="btn-primary">สร้างกลุ่ม</button>
+    </div>
+  </div>
+</div>
+
+<!-- ป๊อปอัพ: QR เชิญเข้าร่วม -->
+<div id="modal-qr" class="modal hidden">
+  <div class="modal-card qr-card">
+    <h3>เชิญเข้าร่วมกลุ่ม</h3>
+    <p class="sub">ให้เพื่อนร่วมทีมเปิดกล้อง/สแกน QR นี้ เพื่อเข้ากลุ่มได้ทันที ไม่ต้องพิมพ์รหัส</p>
+    <div id="qr-canvas-box" class="qr-box"></div>
+    <div class="qr-info">
+      <div>รหัสกลุ่ม: <b id="qr-group-code"></b></div>
+      <div>รหัสผ่าน: <b id="qr-group-pass"></b></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost modal-close">ปิด</button>
+      <button id="btn-copy-join-link" class="btn-primary">คัดลอกลิงก์เชิญ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ป๊อปอัพ: เข้าร่วมกลุ่ม -->
+<div id="modal-join" class="modal hidden">
+  <div class="modal-card">
+    <h3>เข้าร่วมกลุ่ม</h3>
+    <input id="join-group-code" type="text" placeholder="รหัสกลุ่ม (6 หลัก)" maxlength="6" style="text-transform:uppercase">
+    <input id="join-group-pass" type="text" placeholder="รหัสผ่านกลุ่ม">
+    <div class="modal-actions">
+      <button class="btn-ghost modal-close">ยกเลิก</button>
+      <button id="btn-do-join" class="btn-primary">เข้าร่วม</button>
+    </div>
+  </div>
+</div>
+
+<!-- โทรเข้า -->
+<div id="modal-incoming-call" class="modal hidden">
+  <div class="modal-card call-card">
+    <div class="call-avatar">📹</div>
+    <h3 id="incoming-call-name">สายเรียกเข้า...</h3>
+    <p class="sub">วิดีโอคอล</p>
+    <div class="modal-actions">
+      <button id="btn-decline-call" class="btn-danger">ปฏิเสธ</button>
+      <button id="btn-accept-call" class="btn-primary">รับสาย</button>
+    </div>
+  </div>
+</div>
+
+<!-- หน้าจอวิดีโอคอล -->
+<section id="screen-video" class="screen hidden">
+  <video id="remote-video" autoplay playsinline></video>
+  <video id="local-video" autoplay playsinline muted></video>
+  <div id="video-status" class="video-status">กำลังเชื่อมต่อ...</div>
+  <div class="video-controls">
+    <button id="btn-switch-cam" class="icon-btn big">🔄</button>
+    <button id="btn-hangup" class="icon-btn big danger">📞</button>
+  </div>
+</section>
+
+<div id="toast" class="toast hidden"></div>
+
+<!-- เสียงแจ้งเตือนข้อความใหม่ -->
+<audio id="notify-sound" preload="auto">
+  <source src="icons/notify.mp3" type="audio/mpeg">
+</audio>
+
+<!-- Firebase SDK (compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+
+<!-- ไลบรารีสร้าง QR code (ทำงานฝั่งเบราว์เซอร์ผู้ใช้ ไม่เกี่ยวกับ Firebase) -->
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+<script src="js/firebase-config.js"></script>
+<script src="js/identity.js"></script>
+<script src="js/groups.js"></script>
+<script src="js/presence.js"></script>
+<script src="js/chat.js"></script>
+<script src="js/rtc-common.js"></script>
+<script src="js/mesh.js"></script>
+<script src="js/video-call.js"></script>
+<script src="js/app.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
