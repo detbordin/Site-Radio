@@ -36,6 +36,17 @@ const Groups = (() => {
     return g && g.pass ? g.pass : null;
   }
 
+  // บันทึกรหัสผ่าน "ย้อนหลัง" ลงในเอกสารสมาชิกของตัวเองใน Firestore ด้วย - ใช้ตอนที่ผู้ใช้ต้องพิมพ์รหัสผ่าน
+  // เองอีกครั้ง (กรณีกลุ่มเก่าที่สร้าง/เข้าร่วมไว้ก่อนที่ระบบจะเริ่มเก็บ groupPassword อัตโนมัติ) เพื่อให้ครั้งต่อไป
+  // ไม่ต้องถามซ้ำอีกจากอุปกรณ์ไหนก็ตามที่ล็อกอินเป็นคนนี้
+  async function saveMemberGroupPassword(groupId, password) {
+    const uid = Identity.getUid();
+    await db.collection('groups').doc(groupId).collection('members').doc(uid).update({ groupPassword: password });
+    const list = getMyGroups();
+    const g = list.find(x => x.id === groupId);
+    if (g) { g.pass = password; localStorage.setItem(LOCAL_KEY, JSON.stringify(list)); }
+  }
+
   // สร้างกลุ่มใหม่ - อุปกรณ์นี้เป็นแอดมิน (เมน)
   async function createGroup(groupName, password) {
     const uid = Identity.getUid();
@@ -55,7 +66,10 @@ const Groups = (() => {
       avatar: Identity.getAvatar() || null,
       role: 'admin',
       joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      joinPasswordHash: passwordHash
+      joinPasswordHash: passwordHash,
+      // เก็บรหัสผ่านตัวจริง (ไม่ใช่ hash) ไว้ในเอกสารสมาชิกของตัวเองด้วย เพื่อให้สร้าง QR เชิญได้ทันทีจากอุปกรณ์
+      // ไหนก็ได้ที่ล็อกอินเป็นคนนี้ ไม่ต้องพึ่งแค่ localStorage ของเครื่องเดียว (อ่านได้เฉพาะสมาชิกกลุ่มเดียวกันเท่านั้น)
+      groupPassword: password
     });
 
     saveMyGroup({ id: groupId, name: groupName, role: 'admin', pass: password });
@@ -78,7 +92,8 @@ const Groups = (() => {
       avatar: Identity.getAvatar() || null,
       role: uid === group.adminUid ? 'admin' : 'member',
       joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      joinPasswordHash: passwordHash
+      joinPasswordHash: passwordHash,
+      groupPassword: password
     });
 
     // เก็บรหัสผ่านไว้ในเครื่องนี้ด้วย (เหมือนตอนสร้างกลุ่ม) เพื่อให้กดสร้าง QR เชิญซ้ำได้เลยโดยไม่ต้องพิมพ์รหัสผ่านใหม่ทุกครั้ง
@@ -161,6 +176,7 @@ const Groups = (() => {
   return {
     createGroup, joinGroup, getGroupInfo, listenMembers, updateMyProfile,
     removeMember, leaveGroup, setMemberRole, deleteGroupPermanently,
-    getMyGroups, saveMyGroup, removeMyGroup, getGroupPassword
+    getMyGroups, saveMyGroup, removeMyGroup, getGroupPassword, saveMemberGroupPassword,
+    sha256
   };
 })();

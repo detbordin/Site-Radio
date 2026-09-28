@@ -850,10 +850,24 @@
       items.push({
         icon: '🔳', label: 'แสดง QR เชิญเข้าร่วม',
         onClick: () => {
-          const savedPass = Groups.getGroupPassword(currentGroup.id);
-          if (savedPass) { showJoinQr(currentGroup.id, savedPass); return; }
-          const p = prompt('กรอกรหัสผ่านกลุ่มอีกครั้ง เพื่อสร้าง QR เชิญ');
-          if (p) showJoinQr(currentGroup.id, p);
+          // เรียงลำดับที่มา: (1) เอกสารสมาชิกของตัวเองใน Firestore (ใช้ได้ทุกอุปกรณ์ที่ล็อกอินเป็นคนนี้ ไม่ขึ้นกับ
+          // เครื่อง) (2) รหัสผ่านที่เคยจำไว้ในเครื่องนี้ (3) ถ้าไม่มีทั้งคู่ (กลุ่มเก่าก่อนอัปเดตนี้) ค่อยถามครั้งเดียว
+          // แล้วบันทึกย้อนหลังไว้ทั้งสองที่ ครั้งต่อไปจะไม่ถูกถามอีก
+          const me = membersCache.find(x => x.uid === Identity.getUid());
+          const knownPass = (me && me.groupPassword) || Groups.getGroupPassword(currentGroup.id);
+          if (knownPass) { showJoinQr(currentGroup.id, knownPass); return; }
+          const p = prompt('กรอกรหัสผ่านกลุ่มอีกครั้ง เพื่อสร้าง QR เชิญ (ครั้งเดียว ระบบจะจำไว้ให้ครั้งต่อไปไม่ต้องถามอีก)');
+          if (!p) return;
+          // ตรวจก่อนว่ารหัสผ่านที่พิมพ์ตรงกับของจริงไหม (เทียบกับ hash ที่มีอยู่แล้วในเอกสารสมาชิกตัวเอง)
+          // กันพิมพ์ผิดแล้วดันถูกจำเป็นรหัสผ่านผิดถาวร ทำให้คนสแกน QR ครั้งต่อไปเข้าร่วมไม่ได้โดยไม่รู้ตัว
+          Groups.sha256(p).then(hash => {
+            if (me && me.joinPasswordHash && hash !== me.joinPasswordHash) {
+              toast('รหัสผ่านไม่ถูกต้อง ลองใหม่อีกครั้ง', 3000);
+              return;
+            }
+            showJoinQr(currentGroup.id, p);
+            Groups.saveMemberGroupPassword(currentGroup.id, p).catch(() => {});
+          });
         }
       });
     }
