@@ -866,7 +866,10 @@
               return;
             }
             showJoinQr(currentGroup.id, p);
-            Groups.saveMemberGroupPassword(currentGroup.id, p).catch(() => {});
+            Groups.saveMemberGroupPassword(currentGroup.id, p).catch(e => {
+              // แจ้งเตือนถ้าบันทึกไม่สำเร็จ (ปกติ QR ที่เห็นตอนนี้ยังใช้ได้อยู่ แค่ครั้งหน้าจะถูกถามรหัสผ่านอีก)
+              toast('เกิดข้อผิดพลาด บันทึกรหัสผ่านไว้ใช้ครั้งหน้าไม่สำเร็จ: ' + (e && e.message ? e.message : e), 4000);
+            });
           });
         }
       });
