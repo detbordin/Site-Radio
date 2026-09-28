@@ -689,6 +689,19 @@
     });
     watchGroupUnread(g.id);
 
+    // สถานะออนไลน์ของคนอื่นในกลุ่ม ทำงานตลอดเวลาเช่นกัน ไม่ต้องกด "ออนไลน์" เองก่อนถึงจะเห็นว่าใครออนไลน์อยู่
+    // (การกด "ออนไลน์" ควบคุมแค่ว่า "เรา" จะพร้อมใช้วิทยุ/รับสายวิดีโอคอลหรือไม่ ไม่ใช่การมองเห็นคนอื่น)
+    if (unsubPresence) unsubPresence();
+    unsubPresence = Presence.listen(g.id, (presence) => {
+      presenceCache = presence;
+      renderMembers();
+      updateRadioStatus();
+      if (isOnline) {
+        const onlineUids = Object.keys(presence);
+        Mesh.syncOnlinePeers(onlineUids).catch(() => {});
+      }
+    });
+
     unsubMembers = Groups.listenMembers(g.id, (members) => {
       membersCache = members;
       // เป็นแอดมินร่วมได้กี่คนก็ได้ - เช็คจาก role ของตัวเองในรายชื่อสมาชิกสด ๆ ทุกครั้งที่มีการเปลี่ยนแปลง
@@ -717,14 +730,7 @@
     if (on) {
       requestWakeLock();
       Presence.goOnline(g.id);
-      if (unsubPresence) unsubPresence();
-      unsubPresence = Presence.listen(g.id, (presence) => {
-        presenceCache = presence;
-        renderMembers();
-        const onlineUids = Object.keys(presence);
-        Mesh.syncOnlinePeers(onlineUids).catch(() => {});
-        updateRadioStatus();
-      });
+      // การฟังสถานะออนไลน์ (Presence.listen) ทำงานอยู่แล้วตลอดตั้งแต่เข้าห้อง ไม่ต้อง subscribe ซ้ำตรงนี้
 
       if (pttResyncTimer) clearInterval(pttResyncTimer);
       pttResyncTimer = setInterval(() => {
@@ -760,15 +766,13 @@
     } else {
       releaseWakeLock();
       Presence.goOffline();
-      if (unsubPresence) { unsubPresence(); unsubPresence = null; }
+      // ไม่ปิดการฟังสถานะออนไลน์ (unsubPresence) ตรงนี้ - ให้ยังคงเห็นว่าใครออนไลน์อยู่ต่อไปแม้ตัวเองออฟไลน์แล้ว
       if (pttResyncTimer) { clearInterval(pttResyncTimer); pttResyncTimer = null; }
       Mesh.stop();
       VideoCall.stopListening();
-      presenceCache = {};
-      renderMembers();
       renderTalkingBanner([]);
       if (pttTalking) { pttTalking = false; pttBtn.classList.remove('active'); }
-      el('room-sub').textContent = I18N.t('status_offline');
+      renderMembers();
       el('radio-status').textContent = I18N.t('radio_waiting');
       toast('⚪ ออฟไลน์แล้ว');
     }
@@ -1019,7 +1023,8 @@
   function openMemberSheet(m, online) {
     const items = [];
     items.push({ icon: '💬', label: 'ข้อความส่วนตัวถึง ' + m.name, onClick: () => openDm(m) });
-    if (online) items.push({ icon: '📹', label: 'วิดีโอคอลหา ' + m.name, onClick: () => startVideoCallTo(m) });
+    // โทรวิดีโอคอลได้ก็ต่อเมื่ออีกฝ่ายออนไลน์ "และ" ตัวเราเองก็กดออนไลน์ไว้ด้วย (ไม่งั้นเครื่องเรายังไม่พร้อมรับ-ส่งสัญญาณ)
+    if (online && isOnline) items.push({ icon: '📹', label: 'วิดีโอคอลหา ' + m.name, onClick: () => startVideoCallTo(m) });
     if (isAdmin) {
       if (m.role === 'admin') {
         items.push({ icon: '👑', label: 'ถอดสิทธิ์แอดมินร่วม', onClick: () => setMemberRole(m, 'member') });
