@@ -81,7 +81,9 @@ const Groups = (() => {
       joinPasswordHash: passwordHash
     });
 
-    saveMyGroup({ id: groupId, name: group.name, role: uid === group.adminUid ? 'admin' : 'member' });
+    // เก็บรหัสผ่านไว้ในเครื่องนี้ด้วย (เหมือนตอนสร้างกลุ่ม) เพื่อให้กดสร้าง QR เชิญซ้ำได้เลยโดยไม่ต้องพิมพ์รหัสผ่านใหม่ทุกครั้ง
+    // มีผลกับทุกคนที่เข้าร่วมด้วยรหัสผ่าน ไม่ใช่แค่แอดมิน เผื่อภายหลังถูกตั้งเป็นแอดมินร่วม
+    saveMyGroup({ id: groupId, name: group.name, role: uid === group.adminUid ? 'admin' : 'member', pass: password });
     return { groupId, name: group.name };
   }
 
