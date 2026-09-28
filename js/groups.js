@@ -112,6 +112,19 @@ const Groups = (() => {
     await db.collection('groups').doc(groupId).collection('members').doc(uid).update(data);
   }
 
+  // เปลี่ยนชื่อกลุ่ม (แอดมินเท่านั้น - ฝั่ง Firestore Rules อนุญาตให้แอดมินแก้ไขเอกสารกลุ่มอยู่แล้ว)
+  // อัปเดตทั้งเอกสารกลุ่มกลางใน Firestore และแคชในเครื่องของแอดมินเอง ส่วนสมาชิกคนอื่นจะเห็นชื่อใหม่
+  // ทันทีที่เข้าห้องครั้งถัดไป (enterRoom() จะดึงชื่อล่าสุดจาก Firestore มาเทียบ/อัปเดตแคชให้เองอยู่แล้ว)
+  async function renameGroup(groupId, newName) {
+    newName = (newName || '').trim();
+    if (!newName) throw new Error('กรุณากรอกชื่อกลุ่ม');
+    await db.collection('groups').doc(groupId).update({ name: newName });
+    const list = getMyGroups();
+    const g = list.find(x => x.id === groupId);
+    if (g) { g.name = newName; localStorage.setItem(LOCAL_KEY, JSON.stringify(list)); }
+    return newName;
+  }
+
   async function getGroupInfo(groupId) {
     const snap = await db.collection('groups').doc(groupId).get();
     return snap.exists ? { id: groupId, ...snap.data() } : null;
@@ -175,7 +188,7 @@ const Groups = (() => {
 
   return {
     createGroup, joinGroup, getGroupInfo, listenMembers, updateMyProfile,
-    removeMember, leaveGroup, setMemberRole, deleteGroupPermanently,
+    removeMember, leaveGroup, setMemberRole, deleteGroupPermanently, renameGroup,
     getMyGroups, saveMyGroup, removeMyGroup, getGroupPassword, saveMemberGroupPassword,
     sha256
   };

@@ -669,6 +669,17 @@
       return;
     }
 
+    // ถ้าแอดมินเปลี่ยนชื่อกลุ่มจากอุปกรณ์อื่น ชื่อในแคชเครื่องนี้ (ที่ใช้แสดงในหน้ารายการกลุ่ม) อาจยังเก่าอยู่
+    // เทียบกับชื่อล่าสุดจาก Firestore ทุกครั้งที่เข้าห้อง แล้วอัปเดตให้ตรงกันทันที
+    if (stillExists.name && stillExists.name !== g.name) {
+      g.name = stillExists.name;
+      currentGroup.name = stillExists.name;
+      el('room-name').textContent = stillExists.name;
+      const cached = Groups.getMyGroups().find(x => x.id === g.id);
+      if (cached) Groups.saveMyGroup({ ...cached, name: stillExists.name });
+      renderGroupsList();
+    }
+
     // แชท/สมาชิก ทำงานตลอดเวลาไม่ว่าจะกด "ออนไลน์" หรือไม่ (เหมือนแอปแชททั่วไป อ่านข้อความได้เสมอ)
     Chat.listen(g.id, (msgs, isNewIncoming) => {
       currentMsgsCache = msgs;
@@ -846,6 +857,23 @@
       items.push({
         icon: '🔑', label: `รหัสกลุ่ม: ${currentGroup.id}`,
         onClick: () => toast(`รหัสกลุ่ม: ${currentGroup.id} — แชร์ให้ทีมงานเพื่อเข้าร่วม`, 3200)
+      });
+      items.push({
+        icon: '🖊️', label: 'เปลี่ยนชื่อกลุ่ม',
+        onClick: async () => {
+          const newName = prompt('ตั้งชื่อกลุ่มใหม่', currentGroup.name);
+          if (!newName || !newName.trim() || newName.trim() === currentGroup.name) return;
+          try {
+            const gid = currentGroup.id;
+            const finalName = await Groups.renameGroup(gid, newName.trim());
+            currentGroup.name = finalName;
+            el('room-name').textContent = finalName;
+            renderGroupsList();
+            toast(`เปลี่ยนชื่อกลุ่มเป็น "${finalName}" แล้ว`, 2500);
+          } catch (e) {
+            toast('เปลี่ยนชื่อกลุ่มไม่สำเร็จ: ' + (e && e.message ? e.message : e), 3200);
+          }
+        }
       });
       items.push({
         icon: '🔳', label: 'แสดง QR เชิญเข้าร่วม',
