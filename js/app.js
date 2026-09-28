@@ -148,11 +148,8 @@
   }
 
   // ---------- แชทส่วนตัว 1:1 ----------
-  // returnScreen: หน้าที่จะกลับไปตอนกดปิดแชทส่วนตัว (มาจากห้องกลุ่ม/หน้าหลัก/กล่องข้อความ)
-  let dmReturnScreen = 'screen-room';
-  function openDm(member, returnScreen) {
-    dmReturnScreen = returnScreen || 'screen-room';
-    currentDmPeer = { uid: member.uid, name: member.name, avatar: member.avatar || null };
+  function openDm(member) {
+    currentDmPeer = { uid: member.uid, name: member.name };
     el('dm-peer-name').textContent = member.name;
     showScreen('screen-dm');
     DM.listen(member.uid, (msgs) => {
@@ -160,12 +157,11 @@
       const last = msgs[msgs.length - 1];
       if (last) { setDmLastRead(member.uid, last.id); dmUnreadFlags[member.uid] = false; renderMembers(); }
     });
-    DmInbox.markRead(member.uid).catch(() => {});
   }
   function closeDm() {
     DM.stop();
     currentDmPeer = null;
-    showScreen(dmReturnScreen);
+    showScreen('screen-room');
   }
   el('btn-back-dm').addEventListener('click', closeDm);
 
@@ -191,7 +187,7 @@
     const v = input.value.trim();
     if (!v || !currentDmPeer) return;
     input.value = '';
-    DM.sendText(currentDmPeer, v).catch(() => toast('ส่งข้อความไม่สำเร็จ'));
+    DM.sendText(currentDmPeer.uid, v).catch(() => toast('ส่งข้อความไม่สำเร็จ'));
   }
 
   // ---------- Wake Lock: กันหน้าจอดับ/ล็อกตอนกำลังออนไลน์ ----------
@@ -449,16 +445,16 @@
     }
   }
 
-  // ---------- ชื่อผู้ใช้ + บังคับ Login ด้วย Gmail ----------
+  // ---------- ชื่อผู้ใช้ ----------
   async function init() {
     I18N.applyStaticTranslations();
     el('btn-ptt-target').textContent = I18N.t('ptt_target_all');
     attachVoiceInput('btn-mic-chat', 'chat-input');
     attachVoiceInput('btn-mic-dm', 'dm-input');
-    attachVoiceInput('btn-mic-public', 'public-chat-input');
     await Identity.signIn();
+    VideoCall.setMyName(Identity.getName());
 
-    // เช็คว่ามาจากลิงก์เชิญ/สแกน QR ไหม (?g=รหัสกลุ่ม&p=รหัสผ่าน) - เก็บไว้ก่อน ใช้ตอนผ่านล็อกอิน/เช็คแบนแล้ว
+    // เช็คว่ามาจากลิงก์เชิญ/สแกน QR ไหม (?g=รหัสกลุ่ม&p=รหัสผ่าน)
     const params = new URLSearchParams(location.search);
     const joinCode = params.get('g');
     const joinPass = params.get('p');
@@ -468,59 +464,14 @@
       history.replaceState(null, '', location.pathname);
     }
 
-    if (Identity.needsGoogleLogin()) {
-      showScreen('screen-google-login');
-      return; // รอกดปุ่ม "เข้าสู่ระบบด้วย Gmail" ก่อน (บังคับทุกคน) - ไปต่อที่ btn-google-login handler ด้านล่าง
-    }
-    await afterLogin();
-  }
-
-  el('btn-google-login').addEventListener('click', async () => {
-    const btn = el('btn-google-login');
-    btn.disabled = true;
-    try {
-      await Identity.loginWithGoogle();
-      await afterLogin();
-    } catch (err) {
-      toast('เข้าสู่ระบบด้วย Gmail ไม่สำเร็จ ลองใหม่อีกครั้ง');
-    } finally {
-      btn.disabled = false;
-    }
-  });
-
-  // เช็คสถานะแบนก่อนเสมอหลังผ่านการล็อกอิน (ทั้งตอนเพิ่ง login และตอนกลับมาเปิดแอปซ้ำที่ login ค้างไว้แล้ว)
-  async function checkAndShowBanStatus() {
-    try {
-      const doc = await db.collection('bannedUsers').doc(Identity.getUid()).get();
-      if (!doc.exists) return false;
-      const b = doc.data();
-      const untilMs = b.bannedUntil && b.bannedUntil.toMillis ? b.bannedUntil.toMillis() : null;
-      const stillBanned = !untilMs || untilMs > Date.now();
-      if (!stillBanned) return false;
-      el('banned-until-text').textContent = untilMs
-        ? I18N.t('banned_until_prefix', { until: new Date(untilMs).toLocaleString('th-TH') })
-        : I18N.t('banned_until_forever');
-      el('banned-reason-text').textContent = b.reason ? I18N.t('ban_reason_prefix', { reason: b.reason }) : '';
-      showScreen('screen-banned');
-      return true;
-    } catch (err) {
-      return false; // เช็คไม่ได้ (เช่นออฟไลน์ชั่วคราว) - ปล่อยผ่านไปก่อน ไม่บล็อกเพราะเน็ตหลุด
-    }
-  }
-
-  async function afterLogin() {
-    const banned = await checkAndShowBanStatus();
-    if (banned) return;
-    VideoCall.setMyName(Identity.getName());
-    DmInbox.listen(renderDmInboxBadge); // ตัวเลขแจ้งเตือนข้อความส่วนตัวใหม่ ทำงานอยู่เบื้องหลังตลอดทั้งเซสชัน
-    updateSuperAdminUI();
-
     const name = Identity.getName();
     if (!name) {
       showScreen('screen-name');
     } else {
+      showScreen('screen-groups');
+      renderGroupsList();
       requestMediaPermissionsOnce();
-      await enterAppHome();
+      if (pendingJoin) { const pj = pendingJoin; pendingJoin = null; await autoJoin(pj.code, pj.pass); }
     }
   }
 
@@ -529,24 +480,11 @@
     if (!v) { toast('กรุณาใส่ชื่อ'); return; }
     Identity.setName(v);
     VideoCall.setMyName(v);
+    showScreen('screen-groups');
+    renderGroupsList();
     requestMediaPermissionsOnce();
-    await enterAppHome();
+    if (pendingJoin) { const pj = pendingJoin; pendingJoin = null; await autoJoin(pj.code, pj.pass); }
   });
-
-  // เข้าแอปแล้วจะไปที่ไหนก่อน: ถ้ามาจากลิงก์เชิญกลุ่ม (pendingJoin) ให้เข้ากลุ่มนั้นเลย
-  // ไม่งั้นไปหน้าหลัก (แชทสาธารณะ + แผนที่อากาศ) เป็นค่าเริ่มต้น
-  async function enterAppHome() {
-    if (pendingJoin) {
-      const pj = pendingJoin;
-      pendingJoin = null;
-      showScreen('screen-groups');
-      renderGroupsList();
-      await autoJoin(pj.code, pj.pass);
-      return;
-    }
-    showScreen('screen-public');
-    startPublicScreen();
-  }
 
   // เข้าร่วมกลุ่มอัตโนมัติจากลิงก์เชิญ/QR
   async function autoJoin(code, pass) {
@@ -712,7 +650,6 @@
     pttTarget = 'all';
     isOnline = false;
     el('room-name').textContent = g.name;
-    if (el('chat-scope-group-hint')) el('chat-scope-group-hint').textContent = I18N.t('scope_group_hint', { group: g.name });
     showScreen('screen-room');
     switchTab('chat');
     updateOnlineToggleUI();
@@ -951,32 +888,15 @@
     }
   }
 
-  // ---------- แท็บล่าง (ห้องกลุ่ม) ----------
-  // จำกัดขอบเขตแค่ในหน้าห้องกลุ่มเท่านั้น (ไม่งั้นจะไปชนกับแท็บของหน้าหลักที่ใช้คลาสเดียวกัน)
-  document.querySelectorAll('#screen-room .nav-btn[data-tab]').forEach(btn => {
+  // ---------- แท็บล่าง ----------
+  document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
   function switchTab(tab) {
-    document.querySelectorAll('#screen-room .nav-btn[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-    document.querySelectorAll('#screen-room .tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     el('tab-' + tab).classList.add('active');
     if (tab === 'chat') markCurrentGroupRead();
-  }
-
-  // ---------- แท็บล่าง (หน้าหลัก: แชทสาธารณะ / แผนที่อากาศ) ----------
-  document.querySelectorAll('#screen-public .nav-btn[data-ptab]').forEach(btn => {
-    btn.addEventListener('click', () => switchPublicTab(btn.dataset.ptab));
-  });
-  function switchPublicTab(tab) {
-    document.querySelectorAll('#screen-public .nav-btn[data-ptab]').forEach(b => b.classList.toggle('active', b.dataset.ptab === tab));
-    document.querySelectorAll('#screen-public .tab-content').forEach(c => c.classList.remove('active'));
-    el('tab-' + tab).classList.add('active');
-    if (tab === 'public-map') {
-      requestAnimationFrame(() => {
-        initWeatherMapIfNeeded();
-        if (weatherMap) weatherMap.invalidateSize();
-      });
-    }
   }
 
   // ---------- แชท ----------
@@ -1107,9 +1027,6 @@
         items.push({ icon: '👑', label: 'ตั้งเป็นแอดมินร่วม', onClick: () => setMemberRole(m, 'admin') });
       }
       items.push({ icon: '🚫', label: 'นำออกจากกลุ่ม', danger: true, onClick: () => removeMember(m) });
-    }
-    if (Identity.isSuperAdmin() && m.uid !== Identity.getUid()) {
-      items.push({ icon: '🛡️', label: 'แบนผู้ใช้นี้ (แอดมินระบบ)', danger: true, onClick: () => openBanModal(m.uid, m.name) });
     }
     openSheet(m.name, items);
   }
@@ -1266,368 +1183,6 @@
     el('local-video').classList.toggle('cam-off', off);
   });
   el('btn-hangup').addEventListener('click', async () => { await VideoCall.hangUp(); showScreen('screen-room'); });
-
-  // ================== หน้าหลัก: แชทสาธารณะ + แผนที่สภาพอากาศ + กล่องข้อความส่วนตัว ==================
-  let publicChatStarted = false;
-  function startPublicScreen() {
-    if (!publicChatStarted) {
-      publicChatStarted = true;
-      PublicChat.listen(renderPublicMessages);
-    }
-  }
-
-  el('btn-goto-groups').addEventListener('click', () => {
-    showScreen('screen-groups');
-    renderGroupsList();
-  });
-  el('btn-back-public').addEventListener('click', () => showScreen('screen-public'));
-
-  // ---------- แชทสาธารณะ ----------
-  function renderPublicMessages(msgs) {
-    const box = el('public-chat-messages');
-    const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-    box.innerHTML = '';
-    msgs.forEach(m => {
-      const mine = m.senderUid === Identity.getUid();
-      const div = document.createElement('div');
-      div.className = 'msg' + (mine ? ' me' : '');
-      const time = m.createdAt && m.createdAt.toDate ? m.createdAt.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '';
-      div.innerHTML = `${mine ? '' : `<div class="sender tappable-sender">${escapeHtml(m.senderName || '')}</div>`}<div class="text">${escapeHtml(m.text || '')}</div><div class="time">${time}</div>`;
-      if (!mine) {
-        div.querySelector('.sender').addEventListener('click', () => {
-          const peer = { uid: m.senderUid, name: m.senderName, avatar: m.senderAvatar };
-          if (Identity.isSuperAdmin()) {
-            openSheet(m.senderName, [
-              { icon: '💬', label: 'ข้อความส่วนตัว', onClick: () => openDm(peer, 'screen-public') },
-              { icon: '🛡️', label: 'แบนผู้ใช้นี้ (แอดมินระบบ)', danger: true, onClick: () => openBanModal(peer.uid, peer.name) }
-            ]);
-          } else {
-            openDm(peer, 'screen-public');
-          }
-        });
-      }
-      box.appendChild(div);
-    });
-    if (nearBottom) box.scrollTop = box.scrollHeight;
-  }
-
-  el('public-chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCurrentPublicText(); });
-  el('btn-public-send').addEventListener('click', sendCurrentPublicText);
-  function sendCurrentPublicText() {
-    const input = el('public-chat-input');
-    const v = input.value.trim();
-    if (!v) return;
-    input.value = '';
-    PublicChat.sendText(v).catch(() => toast('ส่งข้อความไม่สำเร็จ'));
-  }
-
-  // ---------- กล่องข้อความส่วนตัว (inbox) ----------
-  // เข้าถึงกล่องข้อความส่วนตัวได้จากทั้งหน้าหลักและห้องกลุ่ม (บทสนทนาเดียวกันไม่ว่าจะเริ่มทักจากที่ไหน) -
-  // เก็บว่ากดเข้ามาจากหน้าไหน เพื่อให้ปุ่มย้อนกลับพากลับไปหน้านั้นถูกต้อง
-  let dmInboxReturnScreen = 'screen-public';
-  el('btn-dm-inbox').addEventListener('click', () => { dmInboxReturnScreen = 'screen-public'; showScreen('screen-dm-inbox'); });
-  el('btn-dm-inbox-room').addEventListener('click', () => { dmInboxReturnScreen = 'screen-room'; showScreen('screen-dm-inbox'); });
-  el('btn-back-dm-inbox').addEventListener('click', () => showScreen(dmInboxReturnScreen));
-
-  function renderDmInboxBadge(threads) {
-    const count = threads.filter(t => t.unread).length;
-    document.querySelectorAll('#btn-dm-inbox .n-badge, #btn-dm-inbox-room .n-badge').forEach(badge => {
-      badge.innerHTML = renderBadge(count);
-    });
-    renderDmInboxList(threads);
-  }
-
-  function renderDmInboxList(threads) {
-    const box = el('dm-inbox-list');
-    if (!box) return;
-    box.innerHTML = '';
-    if (threads.length === 0) {
-      box.innerHTML = `<div class="empty-hint">ยังไม่มีข้อความส่วนตัว แตะชื่อใครก็ได้ในแชทสาธารณะเพื่อเริ่มคุย</div>`;
-      return;
-    }
-    threads.forEach(t => {
-      const div = document.createElement('div');
-      div.className = 'group-item';
-      const time = t.lastTs && t.lastTs.toDate ? t.lastTs.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '';
-      div.innerHTML = `
-        <div class="avatar">${avatarHtml({ name: t.peerName, avatar: t.peerAvatar })}</div>
-        <div class="info">
-          <div class="g-name">${escapeHtml(t.peerName || '')}${t.unread ? '<span class="dm-dot"></span>' : ''}</div>
-          <div class="g-role">${escapeHtml(t.lastText || '')}</div>
-        </div>
-        <div class="chevron">${time}</div>`;
-      div.addEventListener('click', () => openDm({ uid: t.peerUid, name: t.peerName, avatar: t.peerAvatar }, 'screen-dm-inbox'));
-      box.appendChild(div);
-    });
-  }
-
-  // ---------- แผนที่สภาพอากาศ (Leaflet + OpenStreetMap ฟรี ไม่ต้องขอ API key) ----------
-  const WEATHER_ICONS = { sunny: '☀️', cloudy: '☁️', rain: '🌧️' };
-  const WEATHER_LABELS = { sunny: I18N.t('cond_sunny'), cloudy: I18N.t('cond_cloudy'), rain: I18N.t('cond_rain') };
-  let weatherMap = null;
-  let weatherMarkers = {};
-  let weatherPinsStarted = false;
-  let addPinMode = false;
-  let pendingPinLatLng = null;
-  let pendingPinCondition = null;
-  let pendingPinPhotoDataUrl = null;
-  let lastWeatherPins = [];
-
-  // ป้ายกำกับเวลาของหมุด: เวลาที่ปัก (ตามเวลาไทย) + นับถอยหลังว่าอีกกี่นาทีจะหายไป (อายุหมุด 2 ชม.)
-  function pinTimeLabel(p) {
-    if (!p.ts || !p.ts.toDate) return '';
-    return p.ts.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-  }
-  function pinCountdownLabel(p) {
-    const remainMs = WeatherPins.TTL_MS - WeatherPins.ageMs(p);
-    if (remainMs <= 0) return 'กำลังจะหายไป';
-    const mins = Math.max(1, Math.round(remainMs / 60000));
-    if (mins >= 60) {
-      const h = Math.floor(mins / 60), m = mins % 60;
-      return `เหลือ ${h} ชม.${m ? ' ' + m + ' น.' : ''}`;
-    }
-    return `เหลือ ${mins} นาที`;
-  }
-
-  function initWeatherMapIfNeeded() {
-    if (weatherMap || typeof L === 'undefined') return;
-    weatherMap = L.map('weather-map', { zoomControl: true }).setView([13.7563, 100.5018], 6); // ค่าเริ่มต้น: กรุงเทพฯ
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
-    }).addTo(weatherMap);
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((pos) => {
-        weatherMap.setView([pos.coords.latitude, pos.coords.longitude], 12);
-      }, () => {}, { timeout: 5000 });
-    }
-    weatherMap.on('click', (e) => {
-      if (!addPinMode) return;
-      pendingPinLatLng = e.latlng;
-      addPinMode = false;
-      el('btn-add-pin').classList.remove('active');
-      openWeatherPinModal();
-    });
-    if (!weatherPinsStarted) {
-      weatherPinsStarted = true;
-      WeatherPins.listen((pins) => { lastWeatherPins = pins; renderWeatherPins(pins); });
-      // เช็คซ้ำทุก 30 วิ เพื่อซ่อนหมุดที่ครบ 2 ชม.พอดีออกจากแผนที่ และอัปเดตป้ายนับถอยหลัง
-      // (query ของ Firestore ไม่รู้เองว่า "เวลาปัจจุบัน" ขยับไปแล้ว จึงต้องกรองซ้ำฝั่ง client)
-      setInterval(() => renderWeatherPins(lastWeatherPins), 30000);
-    }
-  }
-
-  el('btn-add-pin').addEventListener('click', () => {
-    addPinMode = !addPinMode;
-    el('btn-add-pin').classList.toggle('active', addPinMode);
-    toast(addPinMode ? 'แตะบนแผนที่ตรงตำแหน่งที่ต้องการปักหมุด' : 'ยกเลิกการปักหมุด');
-  });
-
-  function renderWeatherPins(pinsIn) {
-    if (!weatherMap) return;
-    // กรองหมุดที่ครบอายุ 2 ชม.แล้วออกจากแผนที่ (query อาจยังคืนมาเผื่อไว้เกินอายุจริงเล็กน้อย)
-    const pins = pinsIn.filter(p => !WeatherPins.isExpired(p));
-    const seen = {};
-    pins.forEach(p => {
-      seen[p.id] = true;
-      const iconHtml = `<span class="pin-emoji">${WEATHER_ICONS[p.condition] || '📍'}</span><span class="pin-age-tag">${escapeHtml(pinCountdownLabel(p))}</span>`;
-      if (weatherMarkers[p.id]) {
-        weatherMarkers[p.id].setLatLng([p.lat, p.lng]);
-        weatherMarkers[p.id].setIcon(L.divIcon({ className: 'weather-pin-icon', html: iconHtml, iconSize: [34, 34] }));
-      } else {
-        const icon = L.divIcon({ className: 'weather-pin-icon', html: iconHtml, iconSize: [34, 34] });
-        const marker = L.marker([p.lat, p.lng], { icon }).addTo(weatherMap);
-        marker.bindPopup(() => buildPinPopupHtml(p));
-        marker.on('popupopen', () => wirePinPopup(p));
-        weatherMarkers[p.id] = marker;
-      }
-    });
-    Object.keys(weatherMarkers).forEach(id => {
-      if (!seen[id]) { weatherMap.removeLayer(weatherMarkers[id]); delete weatherMarkers[id]; }
-    });
-  }
-
-  function buildPinPopupHtml(p) {
-    const photo = p.photoDataUrl ? `<img class="pin-popup-photo" src="${p.photoDataUrl}">` : '';
-    const mine = p.uid === Identity.getUid();
-    const avatarJson = escapeHtml(JSON.stringify(p.avatar || null));
-    return `
-      <div class="pin-popup">
-        <div class="pin-popup-head">${WEATHER_ICONS[p.condition] || '📍'} <b>${escapeHtml(WEATHER_LABELS[p.condition] || '')}</b></div>
-        <div class="pin-popup-by">${escapeHtml(p.name || '')}</div>
-        <div class="pin-popup-time">🕐 ข้อมูล ณ เวลา ${escapeHtml(pinTimeLabel(p))} น. · ${escapeHtml(pinCountdownLabel(p))}</div>
-        ${p.note ? `<div class="pin-popup-note">${escapeHtml(p.note)}</div>` : ''}
-        ${photo}
-        <div class="pin-popup-actions">
-          ${mine
-            ? `<button type="button" class="pin-popup-del" data-pin="${p.id}">🗑️</button>`
-            : `<button type="button" class="pin-popup-dm" data-uid="${p.uid}" data-name="${escapeHtml(p.name || '')}" data-avatar='${avatarJson}'>💬</button>`}
-          ${(!mine && Identity.isSuperAdmin())
-            ? `<button type="button" class="pin-popup-ban" data-uid="${p.uid}" data-name="${escapeHtml(p.name || '')}">🛡️</button>`
-            : ''}
-        </div>
-      </div>`;
-  }
-
-  function wirePinPopup(p) {
-    if (!weatherMarkers[p.id]) return;
-    const popup = weatherMarkers[p.id].getPopup();
-    const node = popup && popup.getElement ? popup.getElement() : null;
-    if (!node) return;
-    const dmBtn = node.querySelector('.pin-popup-dm');
-    if (dmBtn) dmBtn.addEventListener('click', () => {
-      let avatar = null;
-      try { avatar = JSON.parse(dmBtn.dataset.avatar); } catch (err) {}
-      weatherMap.closePopup();
-      openDm({ uid: dmBtn.dataset.uid, name: dmBtn.dataset.name, avatar }, 'screen-public');
-    });
-    const delBtn = node.querySelector('.pin-popup-del');
-    if (delBtn) delBtn.addEventListener('click', async () => {
-      if (!confirm('ลบหมุดนี้ใช่หรือไม่?')) return;
-      try { await WeatherPins.removePin(delBtn.dataset.pin); weatherMap.closePopup(); }
-      catch (err) { toast('ลบไม่สำเร็จ'); }
-    });
-    const banBtn = node.querySelector('.pin-popup-ban');
-    if (banBtn) banBtn.addEventListener('click', () => {
-      weatherMap.closePopup();
-      openBanModal(banBtn.dataset.uid, banBtn.dataset.name);
-    });
-  }
-
-  // ---------- ป๊อปอัพปักหมุดสภาพอากาศ ----------
-  function openWeatherPinModal() {
-    pendingPinCondition = null;
-    pendingPinPhotoDataUrl = null;
-    el('pin-note-input').value = '';
-    el('pin-photo-preview').classList.add('hidden');
-    el('pin-photo-preview').innerHTML = '';
-    document.querySelectorAll('#modal-weather-pin .cond-btn').forEach(b => b.classList.remove('selected'));
-    showModal('modal-weather-pin');
-  }
-  document.querySelectorAll('#modal-weather-pin .cond-btn').forEach(b => {
-    b.addEventListener('click', () => {
-      pendingPinCondition = b.dataset.cond;
-      document.querySelectorAll('#modal-weather-pin .cond-btn').forEach(x => x.classList.toggle('selected', x === b));
-    });
-  });
-  el('btn-pin-pick-photo').addEventListener('click', () => el('pin-photo-input').click());
-  el('pin-photo-input').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    e.target.value = '';
-    if (!file) return;
-    try {
-      pendingPinPhotoDataUrl = await resizeImageToDataUrl(file, 480, 0.6);
-      el('pin-photo-preview').classList.remove('hidden');
-      el('pin-photo-preview').innerHTML = `<img src="${pendingPinPhotoDataUrl}">`;
-    } catch (err) { toast('แนบรูปไม่สำเร็จ'); }
-  });
-  el('btn-submit-pin').addEventListener('click', async () => {
-    if (!pendingPinCondition) { toast('เลือกสภาพอากาศก่อน'); return; }
-    if (!pendingPinLatLng) { toast('ยังไม่ได้เลือกตำแหน่งบนแผนที่'); return; }
-    try {
-      await WeatherPins.addPin({
-        lat: pendingPinLatLng.lat, lng: pendingPinLatLng.lng,
-        condition: pendingPinCondition, note: el('pin-note-input').value.trim(),
-        photoDataUrl: pendingPinPhotoDataUrl
-      });
-      hideModal('modal-weather-pin');
-      toast('ปักหมุดแล้ว');
-      pendingPinLatLng = null;
-    } catch (e) { toast('ปักหมุดไม่สำเร็จ'); }
-  });
-
-  // ================== แผงควบคุมแอดมินระบบ (super admin เท่านั้น): แบน/ปลดแบนผู้ใช้ ==================
-  function updateSuperAdminUI() {
-    el('btn-admin-panel').classList.toggle('hidden', !Identity.isSuperAdmin());
-  }
-
-  el('btn-admin-panel').addEventListener('click', () => {
-    showScreen('screen-admin');
-    renderBannedUsersList();
-  });
-  el('btn-back-admin').addEventListener('click', () => showScreen('screen-public'));
-
-  let pendingBanTarget = null;
-  function openBanModal(uid, name) {
-    if (!Identity.isSuperAdmin()) return;
-    pendingBanTarget = { uid, name };
-    el('ban-target-name').textContent = name || '';
-    showModal('modal-ban-user');
-  }
-
-  document.querySelectorAll('#modal-ban-user .ban-dur-btn').forEach(b => {
-    b.addEventListener('click', async () => {
-      if (!pendingBanTarget) return;
-      const days = b.dataset.days;
-      const bannedUntil = days === 'forever' ? null : firebase.firestore.Timestamp.fromMillis(Date.now() + Number(days) * 86400000);
-      try {
-        await db.collection('bannedUsers').doc(pendingBanTarget.uid).set({
-          name: pendingBanTarget.name || '',
-          bannedUntil,
-          bannedBy: Identity.getUid(),
-          bannedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        hideModal('modal-ban-user');
-        toast('แบนผู้ใช้แล้ว');
-      } catch (e) { toast('แบนไม่สำเร็จ'); }
-    });
-  });
-
-  el('btn-ban-wipe').addEventListener('click', async () => {
-    if (!pendingBanTarget) return;
-    if (!confirm(`แบนถาวรและลบข้อความ/หมุดทั้งหมดของ "${pendingBanTarget.name}" ใช่หรือไม่? (กู้คืนไม่ได้)`)) return;
-    const targetUid = pendingBanTarget.uid;
-    try {
-      await db.collection('bannedUsers').doc(targetUid).set({
-        name: pendingBanTarget.name || '',
-        bannedUntil: null,
-        bannedBy: Identity.getUid(),
-        bannedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        wiped: true
-      });
-      // ลบข้อความแชทสาธารณะ + หมุดสภาพอากาศทั้งหมดของคนนี้ทิ้ง (จำกัดชุดละ 400 รายการต่อคอลเลกชัน กันเกินขีดจำกัด batch)
-      const [msgsSnap, pinsSnap] = await Promise.all([
-        db.collection('publicChatMessages').where('senderUid', '==', targetUid).limit(400).get(),
-        db.collection('weatherPins').where('uid', '==', targetUid).limit(400).get()
-      ]);
-      const batch = db.batch();
-      msgsSnap.forEach(d => batch.delete(d.ref));
-      pinsSnap.forEach(d => batch.delete(d.ref));
-      if (!msgsSnap.empty || !pinsSnap.empty) await batch.commit();
-      hideModal('modal-ban-user');
-      toast('ลบถาวรเรียบร้อยแล้ว');
-    } catch (e) { toast('ทำรายการไม่สำเร็จ'); }
-  });
-
-  async function renderBannedUsersList() {
-    const box = el('banned-users-list');
-    box.innerHTML = '<div class="empty-hint">กำลังโหลด...</div>';
-    try {
-      const snap = await db.collection('bannedUsers').get();
-      const rows = [];
-      snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-      if (rows.length === 0) { box.innerHTML = '<div class="empty-hint">ยังไม่มีผู้ใช้ที่ถูกแบน</div>'; return; }
-      box.innerHTML = '';
-      rows.forEach(r => {
-        const untilMs = r.bannedUntil && r.bannedUntil.toMillis ? r.bannedUntil.toMillis() : null;
-        const statusText = untilMs ? ('จนถึง ' + new Date(untilMs).toLocaleString('th-TH')) : 'ถาวร';
-        const div = document.createElement('div');
-        div.className = 'group-item';
-        div.innerHTML = `
-          <div class="info">
-            <div class="g-name">${escapeHtml(r.name || r.id)}</div>
-            <div class="g-role">${escapeHtml(statusText)}${r.wiped ? ' · ลบเนื้อหาแล้ว' : ''}</div>
-          </div>
-          <button type="button" class="btn-secondary" data-unban="${r.id}" style="width:auto;padding:8px 14px;">ปลดแบน</button>`;
-        div.querySelector('[data-unban]').addEventListener('click', async () => {
-          try { await db.collection('bannedUsers').doc(r.id).delete(); renderBannedUsersList(); toast('ปลดแบนแล้ว'); }
-          catch (e) { toast('ทำรายการไม่สำเร็จ'); }
-        });
-        box.appendChild(div);
-      });
-    } catch (e) {
-      box.innerHTML = '<div class="empty-hint">โหลดรายชื่อไม่สำเร็จ</div>';
-    }
-  }
 
   function escapeHtml(s) {
     return (s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

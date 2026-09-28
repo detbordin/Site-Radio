@@ -23,18 +23,16 @@ const DM = (() => {
     if (unsub) { unsub(); unsub = null; }
   }
 
-  // peer: { uid, name, avatar } ของอีกฝ่าย - ใช้เติมกล่องข้อความส่วนตัว (inbox) ของทั้งสองฝั่งด้วย
-  async function sendText(peer, text) {
+  async function sendText(peerUid, text) {
     const uid = Identity.getUid();
     const name = Identity.getName();
-    await threadRef(peer.uid).add({
+    await threadRef(peerUid).add({
       type: 'text',
       text,
       senderUid: uid,
       senderName: name,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    if (window.DmInbox) DmInbox.touch(peer, text).catch(() => {});
   }
 
   return { listen, stop, sendText };
