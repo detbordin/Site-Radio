@@ -1,6 +1,6 @@
 // แปลภาษาด้วยเสียง: พูดภาษาหนึ่ง ระบบฟังแล้วแปลงเป็นข้อความ, แปลเป็นอีกภาษาที่เลือก,
 // แล้วอ่านออกเสียงคำแปลให้ฟัง (ใช้ Web Speech API ของเบราว์เซอร์สำหรับฟัง/พูด
-// และ MyMemory Translation API ที่ใช้งานฟรีไม่ต้องมี API key สำหรับแปลข้อความ)
+// และ Google Translate endpoint สาธารณะที่ใช้งานฟรีไม่ต้องมี API key สำหรับแปลข้อความ)
 const Translate = (() => {
   // ใช้ชุดภาษาเดียวกับ I18N (ไทย/อังกฤษ/จีน/เขมร/พม่า/ลาว) เพราะเป็นภาษาที่พบบ่อยในไซต์งานก่อสร้างไทย
   const LANGS = ['th', 'en', 'zh', 'km', 'my', 'lo'];
@@ -17,10 +17,15 @@ const Translate = (() => {
     return `${flag} ${LANG_NAMES[code] || code} (${LANG_EN_NAMES[code] || code})`.trim();
   }
 
-  // แปลข้อความผ่าน MyMemory Translation API (ฟรี ไม่ต้องมี API key แต่มีโควตาจำกัดต่อวันต่อ IP
-  // และคุณภาพการแปลอาจไม่สมบูรณ์แบบ 100% โดยเฉพาะคู่ภาษาที่ไม่ใช่อังกฤษ-ไทย)
-  async function translateText(text, fromLang, toLang) {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`;
+  // ภาษาที่มีข้อมูลฝึกสอนน้อย (low-resource) ในเอนจินแปลภาษาทั่วไป - แปลตรง ๆ กับภาษาอื่นที่ไม่ใช่อังกฤษ
+  // มักได้คุณภาพแย่ จึงแปลผ่านอังกฤษเป็นตัวกลางแทนสำหรับภาษากลุ่มนี้ (ดู translateText ด้านล่าง)
+  const LOW_RESOURCE_LANGS = ['my', 'km', 'lo'];
+
+  // เรียก Google Translate ผ่าน endpoint สาธารณะที่เว็บ translate.google.com ใช้เอง (ไม่ต้องมี API key)
+  // หมายเหตุ: เป็น endpoint ที่ไม่เป็นทางการ ไม่มี SLA รับประกัน Google อาจจำกัด/บล็อกได้โดยไม่แจ้งล่วงหน้า
+  // แต่คุณภาพการแปลดีกว่าบริการฟรีอื่น ๆ มากโดยเฉพาะภาษาพม่า/เขมร/ลาว
+  async function googleTranslateRaw(text, fromLang, toLang) {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${fromLang}&tl=${toLang}&dt=t&q=${encodeURIComponent(text)}`;
     let res;
     try {
       res = await fetch(url);
@@ -29,9 +34,22 @@ const Translate = (() => {
     }
     if (!res.ok) throw new Error('เรียกบริการแปลภาษาไม่สำเร็จ');
     const data = await res.json().catch(() => null);
-    const translated = data && data.responseData && data.responseData.translatedText;
-    if (!translated) throw new Error('แปลภาษาไม่สำเร็จ ลองใหม่อีกครั้ง');
-    return translated;
+    const chunks = data && data[0];
+    if (!chunks || !chunks.length) throw new Error('แปลภาษาไม่สำเร็จ ลองใหม่อีกครั้ง');
+    return chunks.map(c => c[0]).join('');
+  }
+
+  // แปลข้อความ - ถ้าเป็นคู่ภาษาที่มีภาษาพม่า/เขมร/ลาว อยู่ฝั่งใดฝั่งหนึ่ง (และไม่ใช่คู่กับอังกฤษโดยตรง)
+  // จะแปลผ่านอังกฤษเป็นตัวกลางสองรอบเพื่อความแม่นยำที่ดีกว่า (เอนจินแปลภาษาแทบทุกตัวแม่นกับคู่ที่มีอังกฤษ
+  // มากกว่าคู่ภาษาหายากตรง ๆ)
+  async function translateText(text, fromLang, toLang) {
+    if (!text) return '';
+    if (fromLang === toLang) return text;
+    const needsPivot = fromLang !== 'en' && toLang !== 'en' &&
+      (LOW_RESOURCE_LANGS.includes(fromLang) || LOW_RESOURCE_LANGS.includes(toLang));
+    if (!needsPivot) return googleTranslateRaw(text, fromLang, toLang);
+    const viaEnglish = await googleTranslateRaw(text, fromLang, 'en');
+    return googleTranslateRaw(viaEnglish, 'en', toLang);
   }
 
   // เริ่มฟังเสียงพูดเป็นภาษาที่กำหนด (langCode เช่น 'th', 'my') แล้วแปลงเป็นข้อความ
