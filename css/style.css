@@ -374,3 +374,24 @@ input::placeholder { color: var(--muted); }
   padding: 11px 20px; border-radius: 20px; font-size: 13.5px; z-index: 100; max-width: 88%; text-align: center;
   box-shadow: var(--shadow);
 }
+
+/* ---------- แปลภาษาด้วยเสียง ---------- */
+.translate-card { max-width: 380px; }
+.translate-lang-row { display: flex; align-items: center; gap: 8px; margin: 14px 0 4px; }
+.translate-lang-select {
+  flex: 1; background: var(--card); border: 1px solid var(--border); color: var(--text);
+  border-radius: var(--radius-md); padding: 10px 8px; font-size: 14px;
+}
+#btn-translate-swap { flex: 0 0 auto; font-size: 18px; }
+.translate-box {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 14px; margin-top: 12px; display: flex; align-items: center; gap: 10px; min-height: 56px;
+}
+.translate-box-result { border-color: var(--accent-2); }
+.translate-text { flex: 1; font-size: 15.5px; line-height: 1.5; word-break: break-word; }
+.translate-placeholder { color: var(--muted); }
+.translate-mic-btn {
+  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; border: none; font-size: 20px;
+  background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center;
+}
+.translate-mic-btn.listening { background: var(--danger); animation: pulse 1s infinite; }

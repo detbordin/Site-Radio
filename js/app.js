@@ -451,6 +451,7 @@
     el('btn-ptt-target').textContent = I18N.t('ptt_target_all');
     attachVoiceInput('btn-mic-chat', 'chat-input');
     attachVoiceInput('btn-mic-dm', 'dm-input');
+    initTranslateFeature();
     await Identity.signIn();
     VideoCall.setMyName(Identity.getName());
 
@@ -853,6 +854,7 @@
   // ---------- เมนูห้อง (⋮) ----------
   el('btn-room-menu').addEventListener('click', () => {
     const items = [];
+    items.push({ icon: '🌐', label: 'แปลภาษาด้วยเสียง', onClick: openTranslateModal });
     if (isAdmin) {
       items.push({
         icon: '🔑', label: `รหัสกลุ่ม: ${currentGroup.id}`,
@@ -1038,6 +1040,91 @@
         btn.classList.add('listening');
       } catch (e) { listening = false; }
     });
+  }
+
+  // ---------- แปลภาษาด้วยเสียง (กด 🌐 แปลภาษา ในเมนูห้อง ⋮) ----------
+  // เลือกได้ว่าจะแปลจากภาษาอะไรเป็นภาษาอะไร (จำคู่ภาษาที่เลือกไว้ในเครื่อง ครั้งหน้าไม่ต้องเลือกใหม่)
+  const TR_LANG_KEY = 'sr_translate_langs';
+  let trRecog = null;
+  function initTranslateFeature() {
+    const selFrom = el('translate-lang-from');
+    const selTo = el('translate-lang-to');
+    Translate.LANGS.forEach(code => {
+      const o1 = document.createElement('option'); o1.value = code; o1.textContent = Translate.LANG_NAMES[code];
+      selFrom.appendChild(o1);
+      const o2 = document.createElement('option'); o2.value = code; o2.textContent = Translate.LANG_NAMES[code];
+      selTo.appendChild(o2);
+    });
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(TR_LANG_KEY) || '{}'); } catch (e) {}
+    selFrom.value = saved.from || 'th';
+    selTo.value = saved.to || 'my';
+
+    function saveLangs() {
+      localStorage.setItem(TR_LANG_KEY, JSON.stringify({ from: selFrom.value, to: selTo.value }));
+    }
+    function resetBoxes() {
+      const srcBox = el('translate-source-text');
+      const resBox = el('translate-result-text');
+      srcBox.textContent = 'กดไมค์แล้วพูดได้เลย...'; srcBox.classList.add('translate-placeholder');
+      resBox.textContent = 'คำแปลจะขึ้นที่นี่'; resBox.classList.add('translate-placeholder');
+    }
+    selFrom.addEventListener('change', () => { saveLangs(); resetBoxes(); });
+    selTo.addEventListener('change', () => { saveLangs(); resetBoxes(); });
+
+    el('btn-translate-swap').addEventListener('click', () => {
+      const f = selFrom.value, t = selTo.value;
+      selFrom.value = t; selTo.value = f;
+      saveLangs();
+      resetBoxes();
+    });
+
+    const micBtn = el('btn-translate-mic');
+    micBtn.addEventListener('click', () => {
+      if (trRecog) { trRecog.stop(); trRecog = null; micBtn.classList.remove('listening'); return; }
+      const fromLang = selFrom.value;
+      const toLang = selTo.value;
+      const srcBox = el('translate-source-text');
+      const resBox = el('translate-result-text');
+      srcBox.textContent = 'กำลังฟัง...'; srcBox.classList.add('translate-placeholder');
+      resBox.textContent = 'คำแปลจะขึ้นที่นี่'; resBox.classList.add('translate-placeholder');
+      micBtn.classList.add('listening');
+      trRecog = Translate.startListening(fromLang, {
+        onResult: async (text) => {
+          srcBox.textContent = text; srcBox.classList.remove('translate-placeholder');
+          resBox.textContent = 'กำลังแปล...'; resBox.classList.add('translate-placeholder');
+          try {
+            const translated = await Translate.translateText(text, fromLang, toLang);
+            resBox.textContent = translated; resBox.classList.remove('translate-placeholder');
+          } catch (e) {
+            resBox.textContent = 'คำแปลจะขึ้นที่นี่'; resBox.classList.add('translate-placeholder');
+            toast('แปลภาษาไม่สำเร็จ: ' + (e && e.message ? e.message : e), 3200);
+          }
+        },
+        onError: () => {
+          srcBox.textContent = 'กดไมค์แล้วพูดได้เลย...'; srcBox.classList.add('translate-placeholder');
+          toast('ฟังไม่ชัดเจน ลองพูดใหม่อีกครั้ง');
+        },
+        onEnd: () => { trRecog = null; micBtn.classList.remove('listening'); }
+      });
+    });
+
+    el('btn-translate-speak').addEventListener('click', () => {
+      const resBox = el('translate-result-text');
+      const text = resBox.textContent.trim();
+      if (!text || resBox.classList.contains('translate-placeholder')) { toast('ยังไม่มีคำแปลให้พูด'); return; }
+      const ok = Translate.speak(text, selTo.value);
+      if (!ok) toast('เบราว์เซอร์นี้ไม่รองรับการอ่านออกเสียง');
+      else if (!Translate.hasVoiceFor(selTo.value)) {
+        toast(`เครื่องนี้อาจไม่มีเสียงภาษา ${Translate.LANG_NAMES[selTo.value]} จะใช้เสียงใกล้เคียงแทน`, 3200);
+      }
+    });
+  }
+
+  function openTranslateModal() {
+    if (trRecog) { trRecog.stop(); trRecog = null; }
+    el('btn-translate-mic').classList.remove('listening');
+    showModal('modal-translate');
   }
 
   // ---------- สมาชิก ----------
