@@ -5,7 +5,17 @@ const Translate = (() => {
   // ใช้ชุดภาษาเดียวกับ I18N (ไทย/อังกฤษ/จีน/เขมร/พม่า/ลาว) เพราะเป็นภาษาที่พบบ่อยในไซต์งานก่อสร้างไทย
   const LANGS = ['th', 'en', 'zh', 'km', 'my', 'lo'];
   const LANG_NAMES = { th: 'ไทย', en: 'English', zh: '中文', km: 'ខ្មែរ', my: 'မြန်မာ', lo: 'ລາວ' };
+  const LANG_EN_NAMES = { th: 'Thai', en: 'English', zh: 'Chinese', km: 'Khmer', my: 'Burmese', lo: 'Lao' };
+  const LANG_FLAG = { th: '🇹🇭', en: '🇬🇧', zh: '🇨🇳', km: '🇰🇭', my: '🇲🇲', lo: '🇱🇦' };
   const SPEECH_LANG = { th: 'th-TH', en: 'en-US', zh: 'zh-CN', km: 'km-KH', my: 'my-MM', lo: 'lo-LA' };
+
+  // ป้ายชื่อภาษาแบบเต็ม สำหรับใส่ใน dropdown - มีธงชาติ + ชื่อภาษาเดิม + ชื่อภาษาอังกฤษกำกับ
+  // เพื่อให้คนที่ไม่คุ้นตัวอักษรของภาษานั้น ๆ ยังพอเดาได้ว่าเลือกภาษาอะไรอยู่
+  function langLabel(code) {
+    const flag = LANG_FLAG[code] || '';
+    if (code === 'en') return `${flag} English`.trim();
+    return `${flag} ${LANG_NAMES[code] || code} (${LANG_EN_NAMES[code] || code})`.trim();
+  }
 
   // แปลข้อความผ่าน MyMemory Translation API (ฟรี ไม่ต้องมี API key แต่มีโควตาจำกัดต่อวันต่อ IP
   // และคุณภาพการแปลอาจไม่สมบูรณ์แบบ 100% โดยเฉพาะคู่ภาษาที่ไม่ใช่อังกฤษ-ไทย)
@@ -74,5 +84,5 @@ const Translate = (() => {
     return voices.some(v => v.lang === targetLang || (v.lang && v.lang.toLowerCase().startsWith(langCode)));
   }
 
-  return { LANGS, LANG_NAMES, SPEECH_LANG, translateText, startListening, speak, hasVoiceFor };
+  return { LANGS, LANG_NAMES, LANG_EN_NAMES, LANG_FLAG, SPEECH_LANG, langLabel, translateText, startListening, speak, hasVoiceFor };
 })();
