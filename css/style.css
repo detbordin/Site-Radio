@@ -375,8 +375,9 @@ input::placeholder { color: var(--muted); }
   box-shadow: var(--shadow);
 }
 
-/* ---------- แปลภาษาด้วยเสียง ---------- */
-.translate-card { max-width: 380px; }
+/* ---------- แปลภาษาด้วยเสียง (แท็บด้านล่าง ใช้ได้เฉพาะตัวเอง) ---------- */
+.translate-tab { padding: 18px 16px; gap: 4px; }
+.translate-hint { color: var(--muted); font-size: 12.5px; text-align: center; margin: 0 0 6px; }
 .translate-lang-row { display: flex; align-items: center; gap: 8px; margin: 14px 0 4px; }
 .translate-lang-select {
   flex: 1; background: var(--card); border: 1px solid var(--border); color: var(--text);

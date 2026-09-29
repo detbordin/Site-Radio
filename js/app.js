@@ -827,6 +827,7 @@
   }
 
   function leaveRoomCleanup() {
+    stopTranslateListening();
     Chat.stop();
     if (unsubMembers) unsubMembers();
     if (unsubPresence) unsubPresence();
@@ -854,7 +855,6 @@
   // ---------- เมนูห้อง (⋮) ----------
   el('btn-room-menu').addEventListener('click', () => {
     const items = [];
-    items.push({ icon: '🌐', label: 'แปลภาษาด้วยเสียง', onClick: openTranslateModal });
     if (isAdmin) {
       items.push({
         icon: '🔑', label: `รหัสกลุ่ม: ${currentGroup.id}`,
@@ -944,6 +944,7 @@
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
   function switchTab(tab) {
+    if (tab !== 'translate') stopTranslateListening();
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     el('tab-' + tab).classList.add('active');
@@ -1121,10 +1122,10 @@
     });
   }
 
-  function openTranslateModal() {
+  function stopTranslateListening() {
     if (trRecog) { trRecog.stop(); trRecog = null; }
-    el('btn-translate-mic').classList.remove('listening');
-    showModal('modal-translate');
+    const micBtn = el('btn-translate-mic');
+    if (micBtn) micBtn.classList.remove('listening');
   }
 
   // ---------- สมาชิก ----------

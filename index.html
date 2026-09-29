@@ -115,10 +115,31 @@
     <div id="radio-status" class="radio-status" data-i18n="radio_connecting">กำลังเชื่อมต่อวิทยุ...</div>
   </div>
 
+  <!-- แปลภาษาด้วยเสียง - ใช้ได้เฉพาะตัวเอง ไม่มีการแจ้งเตือนหรือแสดงผลให้คนอื่นในกลุ่มเห็น -->
+  <div id="tab-translate" class="tab-content translate-tab">
+    <p class="translate-hint">ใช้ได้เฉพาะเครื่องนี้ ไม่มีการแจ้งเตือนหรือแสดงให้คนอื่นในกลุ่มเห็น</p>
+    <div class="translate-lang-row">
+      <select id="translate-lang-from" class="translate-lang-select"></select>
+      <button id="btn-translate-swap" class="icon-btn" type="button" title="สลับภาษา">⇄</button>
+      <select id="translate-lang-to" class="translate-lang-select"></select>
+    </div>
+
+    <div class="translate-box">
+      <div id="translate-source-text" class="translate-text translate-placeholder">กดไมค์แล้วพูดได้เลย...</div>
+      <button id="btn-translate-mic" class="translate-mic-btn" type="button" title="กดแล้วพูด">🎙️</button>
+    </div>
+
+    <div class="translate-box translate-box-result">
+      <div id="translate-result-text" class="translate-text translate-placeholder">คำแปลจะขึ้นที่นี่</div>
+      <button id="btn-translate-speak" class="icon-btn big" type="button" title="พูดคำแปล">🔊</button>
+    </div>
+  </div>
+
   <nav class="bottom-nav">
     <button class="nav-btn active" data-tab="chat"><span class="nav-icon">💬</span><span data-i18n="chat_tab">แชท</span><span class="n-badge"></span></button>
     <button class="nav-btn" data-tab="members"><span class="nav-icon">👥</span><span data-i18n="members_tab">สมาชิก</span></button>
     <button class="nav-btn" data-tab="radio"><span class="nav-icon">📻</span><span data-i18n="radio_tab">วิทยุ</span></button>
+    <button class="nav-btn" data-tab="translate"><span class="nav-icon">🌐</span><span>แปลภาษา</span></button>
   </nav>
 </section>
 
@@ -209,32 +230,6 @@
     <div class="modal-actions">
       <button class="btn-ghost modal-close" data-i18n="btn_cancel">ยกเลิก</button>
       <button id="btn-save-profile" class="btn-primary" data-i18n="btn_save">บันทึก</button>
-    </div>
-  </div>
-</div>
-
-<!-- ป๊อปอัพ: แปลภาษาด้วยเสียง -->
-<div id="modal-translate" class="modal hidden">
-  <div class="modal-card translate-card">
-    <h3>🌐 แปลภาษาด้วยเสียง</h3>
-    <div class="translate-lang-row">
-      <select id="translate-lang-from" class="translate-lang-select"></select>
-      <button id="btn-translate-swap" class="icon-btn" type="button" title="สลับภาษา">⇄</button>
-      <select id="translate-lang-to" class="translate-lang-select"></select>
-    </div>
-
-    <div class="translate-box">
-      <div id="translate-source-text" class="translate-text translate-placeholder">กดไมค์แล้วพูดได้เลย...</div>
-      <button id="btn-translate-mic" class="translate-mic-btn" type="button" title="กดแล้วพูด">🎙️</button>
-    </div>
-
-    <div class="translate-box translate-box-result">
-      <div id="translate-result-text" class="translate-text translate-placeholder">คำแปลจะขึ้นที่นี่</div>
-      <button id="btn-translate-speak" class="icon-btn big" type="button" title="พูดคำแปล">🔊</button>
-    </div>
-
-    <div class="modal-actions">
-      <button class="btn-ghost modal-close" data-i18n="btn_close">ปิด</button>
     </div>
   </div>
 </div>
