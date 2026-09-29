@@ -17,10 +17,6 @@ const Translate = (() => {
     return `${flag} ${LANG_NAMES[code] || code} (${LANG_EN_NAMES[code] || code})`.trim();
   }
 
-  // ภาษาที่มีข้อมูลฝึกสอนน้อย (low-resource) ในเอนจินแปลภาษาทั่วไป - แปลตรง ๆ กับภาษาอื่นที่ไม่ใช่อังกฤษ
-  // มักได้คุณภาพแย่ จึงแปลผ่านอังกฤษเป็นตัวกลางแทนสำหรับภาษากลุ่มนี้ (ดู translateText ด้านล่าง)
-  const LOW_RESOURCE_LANGS = ['my', 'km', 'lo'];
-
   // เรียก Google Translate ผ่าน endpoint สาธารณะที่เว็บ translate.google.com ใช้เอง (ไม่ต้องมี API key)
   // หมายเหตุ: เป็น endpoint ที่ไม่เป็นทางการ ไม่มี SLA รับประกัน Google อาจจำกัด/บล็อกได้โดยไม่แจ้งล่วงหน้า
   // แต่คุณภาพการแปลดีกว่าบริการฟรีอื่น ๆ มากโดยเฉพาะภาษาพม่า/เขมร/ลาว
@@ -39,15 +35,13 @@ const Translate = (() => {
     return chunks.map(c => c[0]).join('');
   }
 
-  // แปลข้อความ - ถ้าเป็นคู่ภาษาที่มีภาษาพม่า/เขมร/ลาว อยู่ฝั่งใดฝั่งหนึ่ง (และไม่ใช่คู่กับอังกฤษโดยตรง)
-  // จะแปลผ่านอังกฤษเป็นตัวกลางสองรอบเพื่อความแม่นยำที่ดีกว่า (เอนจินแปลภาษาแทบทุกตัวแม่นกับคู่ที่มีอังกฤษ
-  // มากกว่าคู่ภาษาหายากตรง ๆ)
+  // แปลข้อความ - แปลผ่านอังกฤษเป็นตัวกลางเสมอสำหรับทุกคู่ภาษาที่ไม่มีอังกฤษอยู่แล้ว (สองรอบ:
+  // ต้นทาง->อังกฤษ->ปลายทาง) เพื่อความแม่นยำที่สม่ำเสมอที่สุด เพราะเอนจินแปลภาษาแทบทุกตัวแม่นกับคู่ที่มี
+  // อังกฤษมากกว่าแปลตรงระหว่างสองภาษาที่ไม่ใช่อังกฤษ - ไม่แสดงข้อความภาษากลางนี้ให้ผู้ใช้เห็น คืนแค่ผลลัพธ์สุดท้าย
   async function translateText(text, fromLang, toLang) {
     if (!text) return '';
     if (fromLang === toLang) return text;
-    const needsPivot = fromLang !== 'en' && toLang !== 'en' &&
-      (LOW_RESOURCE_LANGS.includes(fromLang) || LOW_RESOURCE_LANGS.includes(toLang));
-    if (!needsPivot) return googleTranslateRaw(text, fromLang, toLang);
+    if (fromLang === 'en' || toLang === 'en') return googleTranslateRaw(text, fromLang, toLang);
     const viaEnglish = await googleTranslateRaw(text, fromLang, 'en');
     return googleTranslateRaw(viaEnglish, 'en', toLang);
   }
