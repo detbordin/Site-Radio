@@ -403,3 +403,10 @@ input::placeholder { color: var(--muted); }
   background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center;
 }
 .translate-mic-btn.listening { background: var(--danger); animation: pulse 1s infinite; }
+.translate-listening-status {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  color: var(--danger); font-size: 13px; font-weight: 600; margin-top: 8px;
+}
+.translate-listening-dot {
+  width: 9px; height: 9px; border-radius: 50%; background: var(--danger); animation: pulse 1s infinite;
+}

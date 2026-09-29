@@ -1114,13 +1114,16 @@
     srcInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); performTranslate(getSourceText()); } });
 
     const micBtn = el('btn-translate-mic');
+    const listeningStatus = el('translate-listening-status');
     micBtn.addEventListener('click', () => {
-      if (trRecog) { trRecog.stop(); trRecog = null; micBtn.classList.remove('listening'); return; }
+      if (trRecog) { trRecog.stop(); trRecog = null; micBtn.classList.remove('listening'); listeningStatus.classList.add('hidden'); return; }
       const fromLang = selFrom.value;
       setSourceText('');
       srcInput.placeholder = 'กำลังฟัง...';
       setResultText('');
       micBtn.classList.add('listening');
+      listeningStatus.classList.remove('hidden');
+      toast('🎙️ กำลังฟัง พูดได้เลย...', 2500);
       trRecog = Translate.startListening(fromLang, {
         onResult: (text) => {
           setSourceText(text);
@@ -1132,6 +1135,7 @@
         onEnd: () => {
           trRecog = null;
           micBtn.classList.remove('listening');
+          listeningStatus.classList.add('hidden');
           srcInput.placeholder = 'พิมพ์ข้อความ หรือกดไมค์แล้วพูด...';
         }
       });
@@ -1152,6 +1156,8 @@
     if (trRecog) { trRecog.stop(); trRecog = null; }
     const micBtn = el('btn-translate-mic');
     if (micBtn) micBtn.classList.remove('listening');
+    const listeningStatus = el('translate-listening-status');
+    if (listeningStatus) listeningStatus.classList.add('hidden');
   }
 
   // ---------- สมาชิก ----------
