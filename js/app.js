@@ -1115,31 +1115,52 @@
 
     const micBtn = el('btn-translate-mic');
     const listeningStatus = el('translate-listening-status');
-    micBtn.addEventListener('click', () => {
-      if (trRecog) { trRecog.stop(); trRecog = null; micBtn.classList.remove('listening'); listeningStatus.classList.add('hidden'); return; }
-      const fromLang = selFrom.value;
-      setSourceText('');
-      srcInput.placeholder = 'กำลังฟัง...';
-      setResultText('');
-      micBtn.classList.add('listening');
-      listeningStatus.classList.remove('hidden');
-      toast('🎙️ กำลังฟัง พูดได้เลย...', 2500);
-      trRecog = Translate.startListening(fromLang, {
-        onResult: (text) => {
-          setSourceText(text);
-          performTranslate(text);
-        },
-        onError: () => {
-          toast('ฟังไม่ชัดเจน ลองพูดใหม่อีกครั้ง');
-        },
-        onEnd: () => {
-          trRecog = null;
-          micBtn.classList.remove('listening');
-          listeningStatus.classList.add('hidden');
-          srcInput.placeholder = 'พิมพ์ข้อความ หรือกดไมค์แล้วพูด...';
+    const SR_SUPPORTED = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!SR_SUPPORTED) {
+      // เบราว์เซอร์นี้ไม่รองรับการฟังเสียงพูดเลย (เช่น Firefox หรือเบราว์เซอร์ในแอปบางตัว) - แจ้งให้ชัดเจน
+      // แทนที่จะปล่อยให้ปุ่มค้างสถานะ "กำลังฟัง" โดยไม่มีอะไรเกิดขึ้นจริง
+      micBtn.addEventListener('click', () => toast('เบราว์เซอร์นี้ไม่รองรับการฟังเสียงพูด ลองพิมพ์ข้อความแทนได้เลย', 3200));
+    } else {
+      function resetMicUi() {
+        trRecog = null;
+        micBtn.classList.remove('listening');
+        listeningStatus.classList.add('hidden');
+        srcInput.placeholder = 'พิมพ์ข้อความ หรือกดไมค์แล้วพูด...';
+      }
+      micBtn.addEventListener('click', () => {
+        if (trRecog) { trRecog.stop(); resetMicUi(); return; }
+        const fromLang = selFrom.value;
+        setSourceText('');
+        srcInput.placeholder = 'กำลังฟัง...';
+        setResultText('');
+        micBtn.classList.add('listening');
+        listeningStatus.classList.remove('hidden');
+        toast('🎙️ กำลังฟัง พูดได้เลย...', 2500);
+        trRecog = Translate.startListening(fromLang, {
+          onResult: (text) => {
+            setSourceText(text);
+            performTranslate(text);
+          },
+          onError: (e) => {
+            // เคลียร์สถานะ "กำลังฟัง" ทันทีตรงนี้เลย กันปุ่มค้าง เผื่อเบราว์เซอร์บางตัวไม่ยิง onend ต่อจาก onerror
+            resetMicUi();
+            const errCode = e && e.error;
+            if (errCode === 'not-allowed' || errCode === 'service-not-allowed') {
+              toast('ไม่ได้รับสิทธิ์ใช้ไมโครโฟน กรุณาอนุญาตสิทธิ์ไมค์ให้เว็บนี้ในตั้งค่าเบราว์เซอร์', 3800);
+            } else if (errCode === 'no-speech') {
+              toast('ไม่ได้ยินเสียงพูด ลองพูดใหม่อีกครั้ง');
+            } else {
+              toast('ฟังไม่ชัดเจน ลองพูดใหม่อีกครั้ง');
+            }
+          },
+          onEnd: resetMicUi
+        });
+        if (!trRecog) {
+          // startListening คืนค่า null ทันที (เช่น recog.start() ล้มเหลวแบบ synchronous) - เคลียร์สถานะปุ่มด้วย
+          resetMicUi();
         }
       });
-    });
+    }
 
     el('btn-translate-speak').addEventListener('click', () => {
       const text = getResultText();
