@@ -1050,7 +1050,7 @@
   function initTranslateFeature() {
     const selFrom = el('translate-lang-from');
     const selTo = el('translate-lang-to');
-    const srcBox = el('translate-source-text');
+    const srcInput = el('translate-source-input');
     const resBox = el('translate-result-text');
 
     Translate.LANGS.forEach(code => {
@@ -1068,25 +1068,22 @@
       localStorage.setItem(TR_LANG_KEY, JSON.stringify({ from: selFrom.value, to: selTo.value }));
     }
     function getSourceText() {
-      return srcBox.classList.contains('translate-placeholder') ? '' : srcBox.textContent.trim();
+      return srcInput.value.trim();
     }
     function getResultText() {
       return resBox.classList.contains('translate-placeholder') ? '' : resBox.textContent.trim();
     }
     function setSourceText(text) {
-      if (text) { srcBox.textContent = text; srcBox.classList.remove('translate-placeholder'); }
-      else { srcBox.textContent = 'กดไมค์แล้วพูดได้เลย...'; srcBox.classList.add('translate-placeholder'); }
+      srcInput.value = text || '';
     }
     function setResultText(text) {
       if (text) { resBox.textContent = text; resBox.classList.remove('translate-placeholder'); }
       else { resBox.textContent = 'คำแปลจะขึ้นที่นี่'; resBox.classList.add('translate-placeholder'); }
     }
-    // แปลข้อความที่มีอยู่ในช่องต้นทางซ้ำ ด้วยคู่ภาษาปัจจุบัน (ใช้ตอนเปลี่ยนภาษาโดยที่มีข้อความค้างอยู่แล้ว
-    // เพื่อไม่ให้ข้อความต้นทางหาย แค่ช่องคำแปลอัปเดตตามภาษาที่เพิ่งเปลี่ยนเท่านั้น)
-    async function retranslateIfNeeded() {
-      const text = getSourceText();
-      if (!text) return;
-      setResultText(''); resBox.textContent = 'กำลังแปล...'; resBox.classList.add('translate-placeholder');
+    // แปลข้อความที่มีอยู่ในช่องต้นทาง (พิมพ์เองหรือพูดมาก็ได้) ด้วยคู่ภาษาปัจจุบัน
+    async function performTranslate(text) {
+      if (!text) { setResultText(''); return; }
+      resBox.textContent = 'กำลังแปล...'; resBox.classList.add('translate-placeholder');
       try {
         const translated = await Translate.translateText(text, selFrom.value, selTo.value);
         setResultText(translated);
@@ -1095,6 +1092,8 @@
         toast('แปลภาษาไม่สำเร็จ: ' + (e && e.message ? e.message : e), 3200);
       }
     }
+    // เปลี่ยนภาษาโดยที่มีข้อความค้างอยู่แล้ว - ไม่ล้างข้อความต้นทาง แค่แปลซ้ำให้อัตโนมัติ
+    function retranslateIfNeeded() { performTranslate(getSourceText()); }
 
     selFrom.addEventListener('change', () => { saveLangs(); retranslateIfNeeded(); });
     selTo.addEventListener('change', () => { saveLangs(); retranslateIfNeeded(); });
@@ -1110,31 +1109,31 @@
       setResultText(srcText);
     });
 
+    // พิมพ์เอง: กด Enter หรือกดปุ่ม "แปลข้อความ" เพื่อแปล
+    el('btn-translate-go').addEventListener('click', () => performTranslate(getSourceText()));
+    srcInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); performTranslate(getSourceText()); } });
+
     const micBtn = el('btn-translate-mic');
     micBtn.addEventListener('click', () => {
       if (trRecog) { trRecog.stop(); trRecog = null; micBtn.classList.remove('listening'); return; }
       const fromLang = selFrom.value;
-      const toLang = selTo.value;
-      srcBox.textContent = 'กำลังฟัง...'; srcBox.classList.add('translate-placeholder');
+      setSourceText('');
+      srcInput.placeholder = 'กำลังฟัง...';
       setResultText('');
       micBtn.classList.add('listening');
       trRecog = Translate.startListening(fromLang, {
-        onResult: async (text) => {
+        onResult: (text) => {
           setSourceText(text);
-          resBox.textContent = 'กำลังแปล...'; resBox.classList.add('translate-placeholder');
-          try {
-            const translated = await Translate.translateText(text, fromLang, toLang);
-            setResultText(translated);
-          } catch (e) {
-            setResultText('');
-            toast('แปลภาษาไม่สำเร็จ: ' + (e && e.message ? e.message : e), 3200);
-          }
+          performTranslate(text);
         },
         onError: () => {
-          setSourceText('');
           toast('ฟังไม่ชัดเจน ลองพูดใหม่อีกครั้ง');
         },
-        onEnd: () => { trRecog = null; micBtn.classList.remove('listening'); }
+        onEnd: () => {
+          trRecog = null;
+          micBtn.classList.remove('listening');
+          srcInput.placeholder = 'พิมพ์ข้อความ หรือกดไมค์แล้วพูด...';
+        }
       });
     });
 

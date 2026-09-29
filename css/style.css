@@ -391,6 +391,13 @@ input::placeholder { color: var(--muted); }
 .translate-box-result { border-color: var(--accent-2); }
 .translate-text { flex: 1; font-size: 15.5px; line-height: 1.5; word-break: break-word; }
 .translate-placeholder { color: var(--muted); }
+.translate-text-input {
+  flex: 1; background: transparent; border: none; color: var(--text); font-size: 15.5px;
+  min-width: 0;
+}
+.translate-text-input:focus { outline: none; }
+.translate-text-input::placeholder { color: var(--muted); }
+.translate-go-btn { width: 100%; margin-top: 10px; padding: 11px; font-size: 14.5px; }
 .translate-mic-btn {
   flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; border: none; font-size: 20px;
   background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center;
